@@ -9,7 +9,11 @@ import os
 # ---------------------------------------------------------
 DATA_FILE = "saved_export.csv"
 ACK_FILE = "saved_acknowledged.json"
+ACK_DATES_FILE = "saved_ack_dates.json"
+RESTORED_FILE = "saved_restored.json"
 NOTES_FILE = "saved_notes.json"
+CC_FILE = "saved_cc.json"
+VC_FILE = "saved_vc.json"
 
 def load_persisted_state():
     if "acknowledged_pos" not in st.session_state:
@@ -22,6 +26,26 @@ def load_persisted_state():
         else:
             st.session_state["acknowledged_pos"] = set()
 
+    if "acknowledged_dates" not in st.session_state:
+        if os.path.exists(ACK_DATES_FILE):
+            try:
+                with open(ACK_DATES_FILE, "r") as f:
+                    st.session_state["acknowledged_dates"] = json.load(f)
+            except Exception:
+                st.session_state["acknowledged_dates"] = {}
+        else:
+            st.session_state["acknowledged_dates"] = {}
+
+    if "restored_pos" not in st.session_state:
+        if os.path.exists(RESTORED_FILE):
+            try:
+                with open(RESTORED_FILE, "r") as f:
+                    st.session_state["restored_pos"] = set(json.load(f))
+            except Exception:
+                st.session_state["restored_pos"] = set()
+        else:
+            st.session_state["restored_pos"] = set()
+
     if "reviewer_notes" not in st.session_state:
         if os.path.exists(NOTES_FILE):
             try:
@@ -32,18 +56,50 @@ def load_persisted_state():
         else:
             st.session_state["reviewer_notes"] = {}
 
+    if "cc_state" not in st.session_state:
+        if os.path.exists(CC_FILE):
+            try:
+                with open(CC_FILE, "r") as f:
+                    st.session_state["cc_state"] = json.load(f)
+            except Exception:
+                st.session_state["cc_state"] = {}
+        else:
+            st.session_state["cc_state"] = {}
+
+    if "vc_state" not in st.session_state:
+        if os.path.exists(VC_FILE):
+            try:
+                with open(VC_FILE, "r") as f:
+                    st.session_state["vc_state"] = json.load(f)
+            except Exception:
+                st.session_state["vc_state"] = {}
+        else:
+            st.session_state["vc_state"] = {}
+
 def save_persisted_state():
     with open(ACK_FILE, "w") as f:
         json.dump(list(st.session_state["acknowledged_pos"]), f)
+    with open(ACK_DATES_FILE, "w") as f:
+        json.dump(st.session_state["acknowledged_dates"], f)
+    with open(RESTORED_FILE, "w") as f:
+        json.dump(list(st.session_state["restored_pos"]), f)
     with open(NOTES_FILE, "w") as f:
         json.dump(st.session_state["reviewer_notes"], f)
+    with open(CC_FILE, "w") as f:
+        json.dump(st.session_state["cc_state"], f)
+    with open(VC_FILE, "w") as f:
+        json.dump(st.session_state["vc_state"], f)
 
 def clear_all_saved_data():
-    for f in [DATA_FILE, ACK_FILE, NOTES_FILE]:
+    for f in [DATA_FILE, ACK_FILE, ACK_DATES_FILE, RESTORED_FILE, NOTES_FILE, CC_FILE, VC_FILE]:
         if os.path.exists(f):
             os.remove(f)
     st.session_state["acknowledged_pos"] = set()
+    st.session_state["acknowledged_dates"] = {}
+    st.session_state["restored_pos"] = set()
     st.session_state["reviewer_notes"] = {}
+    st.session_state["cc_state"] = {}
+    st.session_state["vc_state"] = {}
 
 # ---------------------------------------------------------
 # CONFIGURATION & SECURITY
@@ -53,30 +109,26 @@ APP_PASSWORD = "11277"
 st.set_page_config(page_title="Force Fitters - Vendor Audit Portal", layout="wide", initial_sidebar_state="collapsed")
 
 # ---------------------------------------------------------
-# CUSTOM INJECTED CSS (LIGHT THEME & CONTRAST FIXES)
+# CUSTOM INJECTED CSS
 # ---------------------------------------------------------
 st.markdown("""
 <style>
-    /* Force Light Root Theme Variables for Data Tables & Canvas */
     :root {
         --background-color: #FFFFFF !important;
         --secondary-background-color: #F4F5F7 !important;
         --text-color: #111827 !important;
     }
 
-    /* Global App Background */
     .stApp {
         background-color: #F4F5F7 !important;
         color: #111827 !important;
         font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
     }
 
-    /* Text Elements */
     p, span, label, h1, h2, h3, h4, h5, h6, div, .stMarkdown, .stCaption, small, button {
         color: #111827 !important;
     }
 
-    /* Top Navigation Bar */
     .ff-navbar {
         background-color: #111111 !important;
         padding: 14px 24px;
@@ -101,7 +153,6 @@ st.markdown("""
         color: #E5E7EB !important;
     }
 
-    /* File Uploader Container & Dropzone (White Background) */
     div[data-testid="stFileUploader"] {
         background-color: #FFFFFF !important;
         border: 1px solid #D1D5DB !important;
@@ -119,7 +170,6 @@ st.markdown("""
         color: #111827 !important;
     }
 
-    /* Metric Containers (White Cards) */
     div[data-testid="stMetric"], .ff-card {
         background-color: #FFFFFF !important;
         border: 1px solid #D1D5DB !important;
@@ -138,7 +188,6 @@ st.markdown("""
         font-weight: 800 !important;
     }
 
-    /* Tables & Data Editors (Pure White Background, Black Text) */
     div[data-testid="stDataFrame"], div[data-testid="stDataEditor"], div[data-testid="stTable"], .glideDataEditor {
         background-color: #FFFFFF !important;
         border: 1px solid #D1D5DB !important;
@@ -150,7 +199,6 @@ st.markdown("""
         color: #111827 !important;
     }
 
-    /* Buttons Styling */
     .stButton > button, .stDownloadButton > button {
         background-color: #E5E7EB !important;
         color: #111827 !important;
@@ -166,14 +214,12 @@ st.markdown("""
         color: #000000 !important;
     }
 
-    /* Expander Styling */
     div[data-testid="stExpander"] {
         background-color: #FFFFFF !important;
         border: 1px solid #D1D5DB !important;
         border-radius: 8px !important;
     }
 
-    /* Input & Textarea Fields */
     .stTextInput input, .stTextArea textarea {
         background-color: #FFFFFF !important;
         border: 1px solid #9CA3AF !important;
@@ -181,7 +227,6 @@ st.markdown("""
         color: #111827 !important;
     }
 
-    /* Alert Banner Fix */
     div[data-testid="stAlert"] {
         background-color: #FEF3C7 !important;
         border: 1px solid #F59E0B !important;
@@ -192,7 +237,6 @@ st.markdown("""
     }
 </style>
 
-<!-- Top Header Navigation Bar -->
 <div class="ff-navbar">
     <div class="ff-brand">
         ⚡ FORCE FITTERS
@@ -250,7 +294,6 @@ with col_top2:
 
 uploaded_file = st.file_uploader("Upload CSV Export File", type=["csv"])
 
-# Handle Data Loading (Uploaded File vs Saved File)
 df = None
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
@@ -261,6 +304,27 @@ elif os.path.exists(DATA_FILE):
 
 if df is not None:
     current_date = pd.to_datetime(datetime.today().strftime('%Y-%m-%d'))
+    current_today = datetime.today().date()
+
+    # --- 7-DAY EXPIRATION AUTOMATION FOR REVIEWED POS ---
+    expired_pos = []
+    for po in list(st.session_state["acknowledged_pos"]):
+        ack_date_str = st.session_state["acknowledged_dates"].get(po)
+        if ack_date_str:
+            try:
+                ack_date = datetime.strptime(ack_date_str, '%Y-%m-%d').date()
+                if (current_today - ack_date).days > 7:
+                    expired_pos.append(po)
+            except ValueError:
+                pass
+
+    if expired_pos:
+        for po in expired_pos:
+            st.session_state["acknowledged_pos"].remove(po)
+            if po in st.session_state["acknowledged_dates"]:
+                del st.session_state["acknowledged_dates"][po]
+            st.session_state["restored_pos"].add(po)
+        save_persisted_state()
 
     # Filter for 'On Order' status
     on_order_df = df[df['Status'] == 'On Order'].copy()
@@ -268,7 +332,6 @@ if df is not None:
     if on_order_df.empty:
         st.warning("No records found with status 'On Order'.")
     else:
-        # Detect items with Work Order numbers assigned
         wo_col = 'Gorilla Work Order'
         if wo_col in on_order_df.columns:
             on_order_df['Has_WO'] = (
@@ -280,7 +343,6 @@ if df is not None:
         else:
             on_order_df['Has_WO'] = False
 
-        # --- DATA CLEAN-UP ALERT BANNER ---
         checked_in_mismatch = on_order_df[on_order_df['Has_WO']].copy()
         if not checked_in_mismatch.empty:
             st.warning(
@@ -290,16 +352,14 @@ if df is not None:
             with st.expander("Review Item Statuses"):
                 clean_cols = ['Magento Order', 'Vendor', 'Vendor PO', wo_col, 'Qty', 'Vendor Order Date', 'Notes']
                 existing_clean_cols = [c for c in clean_cols if c in checked_in_mismatch.columns]
-                st.dataframe(checked_in_mismatch[existing_clean_cols], use_container_width=True)
+                st.dataframe(checked_in_mismatch[existing_clean_cols], use_container_width=True, hide_index=True)
 
         st.markdown("---")
 
-        # Parse Dates
         on_order_df['Vendor Order Date Clean'] = pd.to_datetime(on_order_df['Vendor Order Date'], errors='coerce')
         on_order_df['Date Ordered Clean'] = pd.to_datetime(on_order_df['Date Ordered'], errors='coerce')
         on_order_df['Effective Date'] = on_order_df['Vendor Order Date Clean'].fillna(on_order_df['Date Ordered Clean'])
 
-        # Collect and combine all unique, non-empty CSV item notes per PO
         def combine_notes(series):
             unique_notes = []
             for item in series.dropna().unique():
@@ -308,7 +368,6 @@ if df is not None:
                     unique_notes.append(clean_item)
             return " | ".join(unique_notes) if unique_notes else "-"
 
-        # Aggregate by Vendor & Vendor PO
         po_summary = on_order_df.groupby(['Vendor', 'Vendor PO']).agg(
             Min_Vendor_Order_Date=('Effective Date', 'min'),
             Min_Customer_Order_Date=('Date Ordered Clean', 'min'),
@@ -318,7 +377,6 @@ if df is not None:
 
         po_summary['Days_Open_Vendor'] = (current_date - po_summary['Min_Vendor_Order_Date']).dt.days
 
-        # Lead Time Rules: Sanmar > 10 days, All other vendors > 14 days
         def check_past_due(row):
             if row['Vendor'] == 'Sanmar':
                 return row['Days_Open_Vendor'] > 10
@@ -328,16 +386,25 @@ if df is not None:
         po_summary['Is_Past_Due'] = po_summary.apply(check_past_due, axis=1)
         all_past_due_df = po_summary[po_summary['Is_Past_Due']].sort_values(by='Days_Open_Vendor', ascending=False)
 
-        # Format display dates
         all_past_due_df['Vendor Order Date'] = all_past_due_df['Min_Vendor_Order_Date'].dt.strftime('%m/%d/%Y')
         all_past_due_df['Customer Order Date'] = all_past_due_df['Min_Customer_Order_Date'].dt.strftime('%m/%d/%Y')
 
-        # Map interactive reviewer notes from session state
+        # Flag column logic: Shows 🚩 if PO was moved back from Reviewed table
+        all_past_due_df['Flag'] = all_past_due_df['Vendor PO'].apply(
+            lambda po: "🚩" if po in st.session_state["restored_pos"] else ""
+        )
+
+        # Map interactive state values
+        all_past_due_df['CC'] = all_past_due_df['Vendor PO'].apply(
+            lambda po: st.session_state["cc_state"].get(po, False)
+        )
+        all_past_due_df['VC'] = all_past_due_df['Vendor PO'].apply(
+            lambda po: st.session_state["vc_state"].get(po, False)
+        )
         all_past_due_df['Review Notes'] = all_past_due_df['Vendor PO'].apply(
             lambda po: st.session_state["reviewer_notes"].get(po, "")
         )
 
-        # Split Dataframes based on acknowledged session state
         active_past_due = all_past_due_df[~all_past_due_df['Vendor PO'].isin(st.session_state["acknowledged_pos"])].copy()
         reviewed_past_due = all_past_due_df[all_past_due_df['Vendor PO'].isin(st.session_state["acknowledged_pos"])].copy()
 
@@ -346,7 +413,7 @@ if df is not None:
         col1.metric("Total Units On Order", int(on_order_df['Qty'].sum()))
         col2.metric("Active Vendor POs", po_summary['Vendor PO'].nunique())
         col3.metric("Action Required POs", len(active_past_due))
-        col4.metric("Reviewed / Secondary POs", len(reviewed_past_due))
+        col4.metric("Reviewed POs", len(reviewed_past_due))
 
         st.subheader("🚨 Past Due Vendor Orders")
 
@@ -356,8 +423,8 @@ if df is not None:
             'Combined_Notes': 'Item Notes'
         }
 
-        # Shared Column Configurations for compact width & expanded Review Notes
         table_column_config = {
+            "Flag": st.column_config.TextColumn("Flag", width="small", help="🚩 Flagged: Re-opened from Reviewed table"),
             "Move": st.column_config.CheckboxColumn("Move", width="small", help="Check to move between tables"),
             "Vendor Order Date": st.column_config.TextColumn("Vendor Order Date", width="small"),
             "Vendor PO": st.column_config.TextColumn("Vendor PO", width="small"),
@@ -366,19 +433,21 @@ if df is not None:
             "Customer Order Date": st.column_config.TextColumn("Customer Order Date", width="small"),
             "Units": st.column_config.NumberColumn("Units", width="small"),
             "Item Notes": st.column_config.TextColumn("Item Notes", width="medium"),
+            "CC": st.column_config.CheckboxColumn("CC", width="small", help="Customer Contacted"),
+            "VC": st.column_config.CheckboxColumn("VC", width="small", help="Vendor Contacted"),
             "Review Notes": st.column_config.TextColumn("Review Notes", width="large")
         }
 
         # --- TABLE 1: ACTION REQUIRED ---
         st.markdown("### 📋 Action Required (Unreviewed Past Due POs)")
-        st.caption("💡 Click the **Move** box in Column 1 to shift a PO to the secondary table.")
+        st.caption("💡 Click the **Move** box to shift a PO to the Reviewed table. 🚩 indicates a re-opened PO.")
 
         if not active_past_due.empty:
-            active_past_due.insert(0, 'Move', False)
+            active_past_due.insert(1, 'Move', False)
 
             output_cols_active = [
-                'Move', 'Vendor Order Date', 'Vendor PO', 'Vendor', 'Days_Open_Vendor',
-                'Customer Order Date', 'Total_Qty', 'Combined_Notes', 'Review Notes'
+                'Flag', 'Move', 'Vendor Order Date', 'Vendor PO', 'Vendor', 'Days_Open_Vendor',
+                'Customer Order Date', 'Total_Qty', 'Combined_Notes', 'CC', 'VC', 'Review Notes'
             ]
 
             final_active_view = active_past_due[output_cols_active].rename(columns=rename_dict)
@@ -386,77 +455,84 @@ if df is not None:
             edited_active_view = st.data_editor(
                 final_active_view,
                 use_container_width=True,
-                disabled=[col for col in final_active_view.columns if col not in ['Move', 'Review Notes']],
+                hide_index=True,
+                disabled=[col for col in final_active_view.columns if col not in ['Move', 'CC', 'VC', 'Review Notes']],
                 column_config=table_column_config,
                 key="active_data_editor"
             )
 
-            # Process state updates for active table
             state_changed = False
             for _, row in edited_active_view.iterrows():
                 po = row['Vendor PO']
                 if st.session_state["reviewer_notes"].get(po) != row['Review Notes']:
                     st.session_state["reviewer_notes"][po] = row['Review Notes']
                     state_changed = True
+                if st.session_state["cc_state"].get(po) != row['CC']:
+                    st.session_state["cc_state"][po] = row['CC']
+                    state_changed = True
+                if st.session_state["vc_state"].get(po) != row['VC']:
+                    st.session_state["vc_state"][po] = row['VC']
+                    state_changed = True
                 if row['Move']:
                     st.session_state["acknowledged_pos"].add(po)
+                    st.session_state["acknowledged_dates"][po] = datetime.today().strftime('%Y-%m-%d')
+                    if po in st.session_state["restored_pos"]:
+                        st.session_state["restored_pos"].remove(po)
                     state_changed = True
 
             if state_changed:
                 save_persisted_state()
                 st.rerun()
-
-            # Copy/Paste PO List String (Active only)
-            po_list_str = ", ".join(active_past_due['Vendor PO'].dropna().unique().tolist())
-            st.text_area("Past Due Vendor POs String for Outreach (Excludes Secondary):", value=po_list_str, height=70)
-
-            # Download CSV Button (Active only)
-            csv_data = edited_active_view.drop(columns=['Move']).to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📥 Download Action Required Report (CSV)",
-                data=csv_data,
-                file_name=f"Action_Required_Vendor_POs_{datetime.now().strftime('%Y%m%d')}.csv",
-                mime="text/csv"
-            )
         else:
-            st.success("All past-due POs have been moved to Secondary or resolved!")
+            st.success("All past-due POs have been moved to Reviewed or resolved!")
 
-        # --- TABLE 2: SECONDARY TABLE ---
+        # --- TABLE 2: REVIEWED ---
         st.markdown("---")
-        with st.expander(f"📁 Secondary Table: Acknowledged / Reviewed Past Due POs ({len(reviewed_past_due)})", expanded=True if not reviewed_past_due.empty else False):
-            if not reviewed_past_due.empty:
-                reviewed_past_due.insert(0, 'Move', False)
+        st.markdown("### 📁 Reviewed")
+        st.caption("💡 Items in Reviewed automatically move back to Action Required after 7 days.")
 
-                output_cols_reviewed = [
-                    'Move', 'Vendor Order Date', 'Vendor PO', 'Vendor', 'Days_Open_Vendor',
-                    'Customer Order Date', 'Total_Qty', 'Combined_Notes', 'Review Notes'
-                ]
+        if not reviewed_past_due.empty:
+            reviewed_past_due.insert(1, 'Move', False)
 
-                final_reviewed_view = reviewed_past_due[output_cols_reviewed].rename(columns=rename_dict)
+            output_cols_reviewed = [
+                'Flag', 'Move', 'Vendor Order Date', 'Vendor PO', 'Vendor', 'Days_Open_Vendor',
+                'Customer Order Date', 'Total_Qty', 'Combined_Notes', 'CC', 'VC', 'Review Notes'
+            ]
 
-                edited_reviewed_view = st.data_editor(
-                    final_reviewed_view,
-                    use_container_width=True,
-                    disabled=[col for col in final_reviewed_view.columns if col not in ['Move', 'Review Notes']],
-                    column_config=table_column_config,
-                    key="reviewed_data_editor"
-                )
+            final_reviewed_view = reviewed_past_due[output_cols_reviewed].rename(columns=rename_dict)
 
-                # Process state updates for secondary table
-                state_changed_rev = False
-                for _, row in edited_reviewed_view.iterrows():
-                    po = row['Vendor PO']
-                    if st.session_state["reviewer_notes"].get(po) != row['Review Notes']:
-                        st.session_state["reviewer_notes"][po] = row['Review Notes']
-                        state_changed_rev = True
-                    if row['Move']:
-                        st.session_state["acknowledged_pos"].remove(po)
-                        state_changed_rev = True
+            edited_reviewed_view = st.data_editor(
+                final_reviewed_view,
+                use_container_width=True,
+                hide_index=True,
+                disabled=[col for col in final_reviewed_view.columns if col not in ['Move', 'CC', 'VC', 'Review Notes']],
+                column_config=table_column_config,
+                key="reviewed_data_editor"
+            )
 
-                if state_changed_rev:
-                    save_persisted_state()
-                    st.rerun()
-            else:
-                st.info("No POs have been moved to the secondary table yet. Check the 'Move' box in Table 1 above to move items here.")
+            state_changed_rev = False
+            for _, row in edited_reviewed_view.iterrows():
+                po = row['Vendor PO']
+                if st.session_state["reviewer_notes"].get(po) != row['Review Notes']:
+                    st.session_state["reviewer_notes"][po] = row['Review Notes']
+                    state_changed_rev = True
+                if st.session_state["cc_state"].get(po) != row['CC']:
+                    st.session_state["cc_state"][po] = row['CC']
+                    state_changed_rev = True
+                if st.session_state["vc_state"].get(po) != row['VC']:
+                    st.session_state["vc_state"][po] = row['VC']
+                    state_changed_rev = True
+                if row['Move']:
+                    st.session_state["acknowledged_pos"].remove(po)
+                    if po in st.session_state["acknowledged_dates"]:
+                        del st.session_state["acknowledged_dates"][po]
+                    st.session_state["restored_pos"].add(po)
+                    state_changed_rev = True
+
+            if state_changed_rev:
+                save_persisted_state()
+                st.rerun()
+        else:
+            st.info("No POs are currently in Reviewed. Check the 'Move' box in Table 1 above to move items here.")
 else:
     st.info("Please upload a CSV export file to begin.")
