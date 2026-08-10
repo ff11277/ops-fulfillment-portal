@@ -185,20 +185,33 @@ if df is not None:
         st.subheader("🚨 Past Due Vendor Orders")
 
         rename_dict = {
-            'Days_Open_Vendor': 'Days Open (Vendor)',
-            'Total_Qty': 'Total Units',
+            'Days_Open_Vendor': 'DOV',
+            'Total_Qty': 'Units',
             'Combined_Notes': 'Item Notes'
+        }
+
+        # Shared Column Configurations for compact width & expanded Review Notes
+        table_column_config = {
+            "Move": st.column_config.CheckboxColumn("Move", width="small", help="Check to move between tables"),
+            "Vendor Order Date": st.column_config.TextColumn("Vendor Order Date", width="small"),
+            "Vendor PO": st.column_config.TextColumn("Vendor PO", width="small"),
+            "Vendor": st.column_config.TextColumn("Vendor", width="small"),
+            "DOV": st.column_config.NumberColumn("DOV", width="small"),
+            "Customer Order Date": st.column_config.TextColumn("Customer Order Date", width="small"),
+            "Units": st.column_config.NumberColumn("Units", width="small"),
+            "Item Notes": st.column_config.TextColumn("Item Notes", width="medium"),
+            "Review Notes": st.column_config.TextColumn("Review Notes", width="large")
         }
 
         # --- TABLE 1: ACTION REQUIRED ---
         st.markdown("### 📋 Action Required (Unreviewed Past Due POs)")
-        st.caption("💡 Click the **Move to Secondary** box in Column 1 to move a PO to the secondary table.")
+        st.caption("💡 Click the **Move** box in Column 1 to shift a PO to the secondary table.")
 
         if not active_past_due.empty:
-            active_past_due.insert(0, 'Move to Secondary', False)
+            active_past_due.insert(0, 'Move', False)
 
             output_cols_active = [
-                'Move to Secondary', 'Vendor Order Date', 'Vendor PO', 'Vendor', 'Days_Open_Vendor',
+                'Move', 'Vendor Order Date', 'Vendor PO', 'Vendor', 'Days_Open_Vendor',
                 'Customer Order Date', 'Total_Qty', 'Combined_Notes', 'Review Notes'
             ]
 
@@ -207,10 +220,8 @@ if df is not None:
             edited_active_view = st.data_editor(
                 final_active_view,
                 use_container_width=True,
-                disabled=[col for col in final_active_view.columns if col not in ['Move to Secondary', 'Review Notes']],
-                column_config={
-                    "Move to Secondary": st.column_config.CheckboxColumn("Move to Secondary", help="Check to move to Secondary Table")
-                },
+                disabled=[col for col in final_active_view.columns if col not in ['Move', 'Review Notes']],
+                column_config=table_column_config,
                 key="active_data_editor"
             )
 
@@ -221,7 +232,7 @@ if df is not None:
                 if st.session_state["reviewer_notes"].get(po) != row['Review Notes']:
                     st.session_state["reviewer_notes"][po] = row['Review Notes']
                     state_changed = True
-                if row['Move to Secondary']:
+                if row['Move']:
                     st.session_state["acknowledged_pos"].add(po)
                     state_changed = True
 
@@ -234,7 +245,7 @@ if df is not None:
             st.text_area("Past Due Vendor POs String for Outreach (Excludes Secondary):", value=po_list_str, height=70)
 
             # Download CSV Button (Active only)
-            csv_data = edited_active_view.drop(columns=['Move to Secondary']).to_csv(index=False).encode('utf-8')
+            csv_data = edited_active_view.drop(columns=['Move']).to_csv(index=False).encode('utf-8')
             st.download_button(
                 label="📥 Download Action Required Report (CSV)",
                 data=csv_data,
@@ -248,10 +259,10 @@ if df is not None:
         st.markdown("---")
         with st.expander(f"📁 Secondary Table: Acknowledged / Reviewed Past Due POs ({len(reviewed_past_due)})", expanded=True if not reviewed_past_due.empty else False):
             if not reviewed_past_due.empty:
-                reviewed_past_due.insert(0, 'Restore to Main', False)
+                reviewed_past_due.insert(0, 'Move', False)
 
                 output_cols_reviewed = [
-                    'Restore to Main', 'Vendor Order Date', 'Vendor PO', 'Vendor', 'Days_Open_Vendor',
+                    'Move', 'Vendor Order Date', 'Vendor PO', 'Vendor', 'Days_Open_Vendor',
                     'Customer Order Date', 'Total_Qty', 'Combined_Notes', 'Review Notes'
                 ]
 
@@ -260,10 +271,8 @@ if df is not None:
                 edited_reviewed_view = st.data_editor(
                     final_reviewed_view,
                     use_container_width=True,
-                    disabled=[col for col in final_reviewed_view.columns if col not in ['Restore to Main', 'Review Notes']],
-                    column_config={
-                        "Restore to Main": st.column_config.CheckboxColumn("Restore to Main", help="Check to move back to Main Table")
-                    },
+                    disabled=[col for col in final_reviewed_view.columns if col not in ['Move', 'Review Notes']],
+                    column_config=table_column_config,
                     key="reviewed_data_editor"
                 )
 
@@ -274,7 +283,7 @@ if df is not None:
                     if st.session_state["reviewer_notes"].get(po) != row['Review Notes']:
                         st.session_state["reviewer_notes"][po] = row['Review Notes']
                         state_changed_rev = True
-                    if row['Restore to Main']:
+                    if row['Move']:
                         st.session_state["acknowledged_pos"].remove(po)
                         state_changed_rev = True
 
@@ -282,6 +291,6 @@ if df is not None:
                     save_persisted_state()
                     st.rerun()
             else:
-                st.info("No POs have been moved to the secondary table yet. Check the 'Move to Secondary' box in Table 1 above to move items here.")
+                st.info("No POs have been moved to the secondary table yet. Check the 'Move' box in Table 1 above to move items here.")
 else:
     st.info("Please upload a CSV export file to begin.")
