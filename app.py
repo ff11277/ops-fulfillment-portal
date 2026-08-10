@@ -50,15 +50,124 @@ def clear_all_saved_data():
 # ---------------------------------------------------------
 APP_PASSWORD = "11277"
 
-st.set_page_config(page_title="Operations Fulfillment Portal", layout="wide")
+st.set_page_config(page_title="Force Fitters - Fulfillment Portal", layout="wide", initial_sidebar_state="collapsed")
+
+# ---------------------------------------------------------
+# CUSTOM INJECTED CSS (FORCE FITTERS BRANDING)
+# ---------------------------------------------------------
+st.markdown("""
+<style>
+    /* App background */
+    .stApp {
+        background-color: #F4F5F7;
+        color: #111827;
+        font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    }
+
+    /* Top Nav Bar Styling */
+    .ff-navbar {
+        background-color: #111111;
+        color: #FFFFFF;
+        padding: 12px 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid #222222;
+        margin: -6rem -5rem 2rem -5rem;
+    }
+    .ff-brand {
+        font-size: 1.25rem;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .ff-user {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #D1D5DB;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    /* Card Containers */
+    div[data-testid="stMetric"], .ff-card {
+        background-color: #EBECEF;
+        border: 1px solid #D5D8DC;
+        border-radius: 8px;
+        padding: 16px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    /* Buttons styling */
+    .stButton > button, .stDownloadButton > button {
+        background-color: #E2E5EA !important;
+        color: #1F2937 !important;
+        border: 1px solid #C4C8D0 !important;
+        border-radius: 6px !important;
+        font-weight: 600 !important;
+        font-size: 0.85rem !important;
+        padding: 6px 14px !important;
+        transition: all 0.2s ease;
+    }
+    .stButton > button:hover, .stDownloadButton > button:hover {
+        background-color: #D1D5DB !important;
+        border-color: #9CA3AF !important;
+        color: #000000 !important;
+    }
+
+    /* Metric Header Fixes */
+    div[data-testid="stMetricLabel"] {
+        color: #4B5563 !important;
+        font-weight: 600 !important;
+        font-size: 0.85rem !important;
+        text-transform: uppercase;
+    }
+    div[data-testid="stMetricValue"] {
+        color: #111827 !important;
+        font-weight: 700 !important;
+    }
+
+    /* Expander styling */
+    div[data-testid="stExpander"] {
+        background-color: #EBECEF;
+        border: 1px solid #D5D8DC;
+        border-radius: 8px;
+    }
+
+    /* Input text boxes */
+    .stTextInput > div > div > input, .stTextArea > div > div > textarea {
+        background-color: #FFFFFF !important;
+        border: 1px solid #C4C8D0 !important;
+        border-radius: 6px !important;
+        color: #111827 !important;
+    }
+</style>
+
+<!-- Custom Header Bar -->
+<div class="ff-navbar">
+    <div class="ff-brand">
+        ⚡ FORCE FITTERS
+    </div>
+    <div class="ff-user">
+        👤 Internal Operations Portal
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
+if "confirm_clear" not in st.session_state:
+    st.session_state["confirm_clear"] = False
+
 load_persisted_state()
 
 if not st.session_state["authenticated"]:
-    st.title("🔒 Internal Operations Portal")
+    st.title("🔒 Security Check")
     user_input = st.text_input("Enter Access Key:", type="password")
     if st.button("Login"):
         if user_input == APP_PASSWORD:
@@ -75,12 +184,24 @@ st.title("📦 Fulfillment & Inventory Audit Portal")
 
 col_top1, col_top2 = st.columns([3, 1])
 with col_top1:
-    st.markdown("Upload a new system CSV export file, or continue working with saved data.")
+    st.markdown("Upload a new system CSV export file, or continue working with saved audit data.")
+
 with col_top2:
-    if st.button("🗑️ Clear Saved Session & Data"):
-        clear_all_saved_data()
-        st.success("Saved data cleared!")
-        st.rerun()
+    if not st.session_state["confirm_clear"]:
+        if st.button("🗑️ Clear Saved Session & Data"):
+            st.session_state["confirm_clear"] = True
+            st.rerun()
+    else:
+        st.warning("Are you sure you want to clear all data?")
+        col_yes, col_no = st.columns(2)
+        if col_yes.button("Yes", key="confirm_clear_yes"):
+            clear_all_saved_data()
+            st.session_state["confirm_clear"] = False
+            st.success("Saved data cleared!")
+            st.rerun()
+        if col_no.button("No", key="confirm_clear_no"):
+            st.session_state["confirm_clear"] = False
+            st.rerun()
 
 uploaded_file = st.file_uploader("Upload CSV Export File", type=["csv"])
 
