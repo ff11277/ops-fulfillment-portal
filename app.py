@@ -199,7 +199,7 @@ st.markdown("""
         color: #111827 !important;
     }
 
-    .stButton > button, .stDownloadButton > button {
+    .stButton > button, .stDownloadButton > button, div[data-testid="stFormSubmitButton"] > button {
         background-color: #E5E7EB !important;
         color: #111827 !important;
         border: 1px solid #9CA3AF !important;
@@ -208,7 +208,7 @@ st.markdown("""
         font-size: 0.85rem !important;
         padding: 6px 14px !important;
     }
-    .stButton > button:hover, .stDownloadButton > button:hover {
+    .stButton > button:hover, .stDownloadButton > button:hover, div[data-testid="stFormSubmitButton"] > button:hover {
         background-color: #D1D5DB !important;
         border-color: #6B7280 !important;
         color: #000000 !important;
@@ -257,13 +257,15 @@ load_persisted_state()
 
 if not st.session_state["authenticated"]:
     st.title("🔒 Security Check")
-    user_input = st.text_input("Enter Access Key:", type="password")
-    if st.button("Login"):
-        if user_input == APP_PASSWORD:
-            st.session_state["authenticated"] = True
-            st.rerun()
-        else:
-            st.error("Incorrect access key. Please try again.")
+    with st.form("login_form"):
+        user_input = st.text_input("Enter Access Key:", type="password")
+        login_submitted = st.form_submit_button("Login")
+        if login_submitted:
+            if user_input == APP_PASSWORD:
+                st.session_state["authenticated"] = True
+                st.rerun()
+            else:
+                st.error("Incorrect access key. Please try again.")
     st.stop()
 
 # ---------------------------------------------------------
