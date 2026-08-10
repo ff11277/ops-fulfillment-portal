@@ -53,10 +53,17 @@ APP_PASSWORD = "11277"
 st.set_page_config(page_title="Force Fitters - Vendor Audit Portal", layout="wide", initial_sidebar_state="collapsed")
 
 # ---------------------------------------------------------
-# CUSTOM INJECTED CSS (FORCE FITTERS UI & CONTRAST FIXES)
+# CUSTOM INJECTED CSS (LIGHT THEME & CONTRAST FIXES)
 # ---------------------------------------------------------
 st.markdown("""
 <style>
+    /* Force Light Root Theme Variables for Data Tables & Canvas */
+    :root {
+        --background-color: #FFFFFF !important;
+        --secondary-background-color: #F4F5F7 !important;
+        --text-color: #111827 !important;
+    }
+
     /* Global App Background */
     .stApp {
         background-color: #F4F5F7 !important;
@@ -64,12 +71,12 @@ st.markdown("""
         font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
     }
 
-    /* Force all text elements to high-contrast dark charcoal */
+    /* Text Elements */
     p, span, label, h1, h2, h3, h4, h5, h6, div, .stMarkdown, .stCaption, small, button {
         color: #111827 !important;
     }
 
-    /* Top Nav Bar (Keep Dark Header with White Text) */
+    /* Top Navigation Bar */
     .ff-navbar {
         background-color: #111111 !important;
         padding: 14px 24px;
@@ -94,7 +101,25 @@ st.markdown("""
         color: #E5E7EB !important;
     }
 
-    /* Cards & Metric Containers (Pure White Backgrounds) */
+    /* File Uploader Container & Dropzone (White Background) */
+    div[data-testid="stFileUploader"] {
+        background-color: #FFFFFF !important;
+        border: 1px solid #D1D5DB !important;
+        border-radius: 8px !important;
+        padding: 12px !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+    }
+    section[data-testid="stFileUploaderDropzone"] {
+        background-color: #FFFFFF !important;
+        border: 2px dashed #9CA3AF !important;
+        border-radius: 6px !important;
+    }
+    section[data-testid="stFileUploaderDropzone"] * {
+        background-color: #FFFFFF !important;
+        color: #111827 !important;
+    }
+
+    /* Metric Containers (White Cards) */
     div[data-testid="stMetric"], .ff-card {
         background-color: #FFFFFF !important;
         border: 1px solid #D1D5DB !important;
@@ -113,12 +138,12 @@ st.markdown("""
         font-weight: 800 !important;
     }
 
-    /* Tables & Data Editor Styling (White Background, Black Text) */
-    div[data-testid="stDataFrame"], div[data-testid="stDataEditor"], div[data-testid="stTable"] {
+    /* Tables & Data Editors (Pure White Background, Black Text) */
+    div[data-testid="stDataFrame"], div[data-testid="stDataEditor"], div[data-testid="stTable"], .glideDataEditor {
         background-color: #FFFFFF !important;
         border: 1px solid #D1D5DB !important;
         border-radius: 8px !important;
-        padding: 6px !important;
+        padding: 4px !important;
         box-shadow: 0 1px 2px rgba(0,0,0,0.03) !important;
     }
     div[data-testid="stDataFrame"] *, div[data-testid="stDataEditor"] * {
@@ -141,14 +166,14 @@ st.markdown("""
         color: #000000 !important;
     }
 
-    /* Expander Container Styling */
+    /* Expander Styling */
     div[data-testid="stExpander"] {
         background-color: #FFFFFF !important;
         border: 1px solid #D1D5DB !important;
         border-radius: 8px !important;
     }
 
-    /* Input & Text Area Fields */
+    /* Input & Textarea Fields */
     .stTextInput input, .stTextArea textarea {
         background-color: #FFFFFF !important;
         border: 1px solid #9CA3AF !important;
@@ -156,7 +181,7 @@ st.markdown("""
         color: #111827 !important;
     }
 
-    /* Alert Banner Contrast Fix */
+    /* Alert Banner Fix */
     div[data-testid="stAlert"] {
         background-color: #FEF3C7 !important;
         border: 1px solid #F59E0B !important;
