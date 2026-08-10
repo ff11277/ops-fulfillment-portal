@@ -129,6 +129,19 @@ st.markdown("""
         color: #111827 !important;
     }
 
+    /* Tooltip styling fix (white background, dark text) */
+    div[data-baseweb="tooltip"], div[role="tooltip"], .stTooltipContent {
+        background-color: #FFFFFF !important;
+        color: #111827 !important;
+        border: 1px solid #D1D5DB !important;
+        border-radius: 6px !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+    }
+    div[data-baseweb="tooltip"] *, div[role="tooltip"] * {
+        background-color: #FFFFFF !important;
+        color: #111827 !important;
+    }
+
     .ff-navbar {
         background-color: #111111 !important;
         padding: 14px 24px;
@@ -442,7 +455,7 @@ if df is not None:
 
         # --- TABLE 1: ACTION REQUIRED ---
         st.markdown("### 📋 Action Required (Unreviewed Past Due POs)")
-        st.caption("💡 Click the **Move** box to shift a PO to the Reviewed table. 🚩 indicates a re-opened PO.")
+        st.caption("💡 Click the **Move** box to shift a PO to the Reviewed table. 🚩 indicates PO to review again.")
 
         if not active_past_due.empty:
             active_past_due.insert(1, 'Move', False)
