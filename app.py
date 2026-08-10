@@ -48,7 +48,7 @@ def clear_all_saved_data():
 # ---------------------------------------------------------
 # CONFIGURATION & SECURITY
 # ---------------------------------------------------------
-APP_PASSWORD = "Operations2026!"
+APP_PASSWORD = "11277"
 
 st.set_page_config(page_title="Operations Fulfillment Portal", layout="wide")
 
