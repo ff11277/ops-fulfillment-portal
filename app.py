@@ -50,110 +50,130 @@ def clear_all_saved_data():
 # ---------------------------------------------------------
 APP_PASSWORD = "11277"
 
-st.set_page_config(page_title="Force Fitters - Fulfillment Portal", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Force Fitters - Vendor Audit Portal", layout="wide", initial_sidebar_state="collapsed")
 
 # ---------------------------------------------------------
-# CUSTOM INJECTED CSS (FORCE FITTERS BRANDING)
+# CUSTOM INJECTED CSS (FORCE FITTERS UI & CONTRAST FIXES)
 # ---------------------------------------------------------
 st.markdown("""
 <style>
-    /* App background */
+    /* Global App Background */
     .stApp {
-        background-color: #F4F5F7;
-        color: #111827;
+        background-color: #F4F5F7 !important;
+        color: #111827 !important;
         font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
     }
 
-    /* Top Nav Bar Styling */
+    /* Force all text elements to high-contrast dark charcoal */
+    p, span, label, h1, h2, h3, h4, h5, h6, div, .stMarkdown, .stCaption, small, button {
+        color: #111827 !important;
+    }
+
+    /* Top Nav Bar (Keep Dark Header with White Text) */
     .ff-navbar {
-        background-color: #111111;
-        color: #FFFFFF;
-        padding: 12px 24px;
+        background-color: #111111 !important;
+        padding: 14px 24px;
         display: flex;
         justify-content: space-between;
         align-items: center;
         border-bottom: 2px solid #222222;
         margin: -6rem -5rem 2rem -5rem;
     }
+    .ff-navbar *, .ff-brand, .ff-user {
+        color: #FFFFFF !important;
+    }
     .ff-brand {
         font-size: 1.25rem;
         font-weight: 800;
         letter-spacing: 0.5px;
         text-transform: uppercase;
-        display: flex;
-        align-items: center;
-        gap: 8px;
     }
     .ff-user {
         font-size: 0.9rem;
         font-weight: 500;
-        color: #D1D5DB;
-        display: flex;
-        align-items: center;
-        gap: 6px;
+        color: #E5E7EB !important;
     }
 
-    /* Card Containers */
+    /* Cards & Metric Containers (Pure White Backgrounds) */
     div[data-testid="stMetric"], .ff-card {
-        background-color: #EBECEF;
-        border: 1px solid #D5D8DC;
-        border-radius: 8px;
-        padding: 16px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        background-color: #FFFFFF !important;
+        border: 1px solid #D1D5DB !important;
+        border-radius: 8px !important;
+        padding: 16px !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+    }
+    div[data-testid="stMetricLabel"] p {
+        color: #4B5563 !important;
+        font-weight: 700 !important;
+        font-size: 0.8rem !important;
+        text-transform: uppercase;
+    }
+    div[data-testid="stMetricValue"] div {
+        color: #111827 !important;
+        font-weight: 800 !important;
     }
 
-    /* Buttons styling */
+    /* Tables & Data Editor Styling (White Background, Black Text) */
+    div[data-testid="stDataFrame"], div[data-testid="stDataEditor"], div[data-testid="stTable"] {
+        background-color: #FFFFFF !important;
+        border: 1px solid #D1D5DB !important;
+        border-radius: 8px !important;
+        padding: 6px !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.03) !important;
+    }
+    div[data-testid="stDataFrame"] *, div[data-testid="stDataEditor"] * {
+        color: #111827 !important;
+    }
+
+    /* Buttons Styling */
     .stButton > button, .stDownloadButton > button {
-        background-color: #E2E5EA !important;
-        color: #1F2937 !important;
-        border: 1px solid #C4C8D0 !important;
+        background-color: #E5E7EB !important;
+        color: #111827 !important;
+        border: 1px solid #9CA3AF !important;
         border-radius: 6px !important;
         font-weight: 600 !important;
         font-size: 0.85rem !important;
         padding: 6px 14px !important;
-        transition: all 0.2s ease;
     }
     .stButton > button:hover, .stDownloadButton > button:hover {
         background-color: #D1D5DB !important;
-        border-color: #9CA3AF !important;
+        border-color: #6B7280 !important;
         color: #000000 !important;
     }
 
-    /* Metric Header Fixes */
-    div[data-testid="stMetricLabel"] {
-        color: #4B5563 !important;
-        font-weight: 600 !important;
-        font-size: 0.85rem !important;
-        text-transform: uppercase;
-    }
-    div[data-testid="stMetricValue"] {
-        color: #111827 !important;
-        font-weight: 700 !important;
-    }
-
-    /* Expander styling */
+    /* Expander Container Styling */
     div[data-testid="stExpander"] {
-        background-color: #EBECEF;
-        border: 1px solid #D5D8DC;
-        border-radius: 8px;
+        background-color: #FFFFFF !important;
+        border: 1px solid #D1D5DB !important;
+        border-radius: 8px !important;
     }
 
-    /* Input text boxes */
-    .stTextInput > div > div > input, .stTextArea > div > div > textarea {
+    /* Input & Text Area Fields */
+    .stTextInput input, .stTextArea textarea {
         background-color: #FFFFFF !important;
-        border: 1px solid #C4C8D0 !important;
+        border: 1px solid #9CA3AF !important;
         border-radius: 6px !important;
         color: #111827 !important;
     }
+
+    /* Alert Banner Contrast Fix */
+    div[data-testid="stAlert"] {
+        background-color: #FEF3C7 !important;
+        border: 1px solid #F59E0B !important;
+        border-radius: 8px !important;
+    }
+    div[data-testid="stAlert"] * {
+        color: #78350F !important;
+    }
 </style>
 
-<!-- Custom Header Bar -->
+<!-- Top Header Navigation Bar -->
 <div class="ff-navbar">
     <div class="ff-brand">
         ⚡ FORCE FITTERS
     </div>
     <div class="ff-user">
-        👤 Internal Operations Portal
+        👤 Vendor Audit Portal
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -180,7 +200,7 @@ if not st.session_state["authenticated"]:
 # ---------------------------------------------------------
 # MAIN APPLICATION
 # ---------------------------------------------------------
-st.title("📦 Fulfillment & Inventory Audit Portal")
+st.title("📦 Vendor Audit Portal")
 
 col_top1, col_top2 = st.columns([3, 1])
 with col_top1:
