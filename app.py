@@ -307,7 +307,7 @@ with col_top2:
             st.session_state["confirm_clear"] = False
             st.rerun()
 
-uploaded_file = st.file_uploader("Upload CSV Export File", type=["csv"])
+uploaded_file = st.file_uploader("Only upload On Order export from [here](https://admin.forcefitters.com/orders?statuses[]=9)", type=["csv"])
 
 df = None
 if uploaded_file is not None:
@@ -315,7 +315,6 @@ if uploaded_file is not None:
     df.to_csv(DATA_FILE, index=False)
 elif os.path.exists(DATA_FILE):
     df = pd.read_csv(DATA_FILE)
-    st.info("ℹ️ Showing previously saved audit data. Upload a new CSV above at any time to overwrite.")
 
 if df is not None:
     current_date = pd.to_datetime(datetime.today().strftime('%Y-%m-%d'))
@@ -410,11 +409,11 @@ if df is not None:
         )
 
         # Map interactive state values
-        all_past_due_df['CC'] = all_past_due_df['Vendor PO'].apply(
-            lambda po: st.session_state["cc_state"].get(po, False)
-        )
         all_past_due_df['VC'] = all_past_due_df['Vendor PO'].apply(
             lambda po: st.session_state["vc_state"].get(po, False)
+        )
+        all_past_due_df['CC'] = all_past_due_df['Vendor PO'].apply(
+            lambda po: st.session_state["cc_state"].get(po, False)
         )
         all_past_due_df['Review Notes'] = all_past_due_df['Vendor PO'].apply(
             lambda po: st.session_state["reviewer_notes"].get(po, "")
@@ -439,7 +438,7 @@ if df is not None:
         }
 
         table_column_config = {
-            "Flag": st.column_config.TextColumn("Flag", width="small", help="🚩 Flagged: Re-opened from Reviewed table"),
+            "Flag": st.column_config.TextColumn("Flag", width=50, help="🚩 Flagged: Re-opened from Reviewed table"),
             "Move": st.column_config.CheckboxColumn("Move", width="small", help="Check to move between tables"),
             "Vendor Order Date": st.column_config.TextColumn("Vendor Order Date", width="small"),
             "Vendor PO": st.column_config.TextColumn("Vendor PO", width="small"),
@@ -448,8 +447,8 @@ if df is not None:
             "Customer Order Date": st.column_config.TextColumn("Customer Order Date", width="small"),
             "Units": st.column_config.NumberColumn("Units", width="small"),
             "Item Notes": st.column_config.TextColumn("Item Notes", width="medium"),
-            "CC": st.column_config.CheckboxColumn("CC", width="small", help="Customer Contacted"),
             "VC": st.column_config.CheckboxColumn("VC", width="small", help="Vendor Contacted"),
+            "CC": st.column_config.CheckboxColumn("CC", width="small", help="Customer Contacted"),
             "Review Notes": st.column_config.TextColumn("Review Notes", width="large")
         }
 
@@ -462,7 +461,7 @@ if df is not None:
 
             output_cols_active = [
                 'Flag', 'Move', 'Vendor Order Date', 'Vendor PO', 'Vendor', 'Days_Open_Vendor',
-                'Customer Order Date', 'Total_Qty', 'Combined_Notes', 'CC', 'VC', 'Review Notes'
+                'Customer Order Date', 'Total_Qty', 'Combined_Notes', 'VC', 'CC', 'Review Notes'
             ]
 
             final_active_view = active_past_due[output_cols_active].rename(columns=rename_dict)
@@ -471,7 +470,7 @@ if df is not None:
                 final_active_view,
                 use_container_width=True,
                 hide_index=True,
-                disabled=[col for col in final_active_view.columns if col not in ['Move', 'CC', 'VC', 'Review Notes']],
+                disabled=[col for col in final_active_view.columns if col not in ['Move', 'VC', 'CC', 'Review Notes']],
                 column_config=table_column_config,
                 key="active_data_editor"
             )
@@ -482,11 +481,11 @@ if df is not None:
                 if st.session_state["reviewer_notes"].get(po) != row['Review Notes']:
                     st.session_state["reviewer_notes"][po] = row['Review Notes']
                     state_changed = True
-                if st.session_state["cc_state"].get(po) != row['CC']:
-                    st.session_state["cc_state"][po] = row['CC']
-                    state_changed = True
                 if st.session_state["vc_state"].get(po) != row['VC']:
                     st.session_state["vc_state"][po] = row['VC']
+                    state_changed = True
+                if st.session_state["cc_state"].get(po) != row['CC']:
+                    st.session_state["cc_state"][po] = row['CC']
                     state_changed = True
                 if row['Move']:
                     st.session_state["acknowledged_pos"].add(po)
@@ -511,7 +510,7 @@ if df is not None:
 
             output_cols_reviewed = [
                 'Flag', 'Move', 'Vendor Order Date', 'Vendor PO', 'Vendor', 'Days_Open_Vendor',
-                'Customer Order Date', 'Total_Qty', 'Combined_Notes', 'CC', 'VC', 'Review Notes'
+                'Customer Order Date', 'Total_Qty', 'Combined_Notes', 'VC', 'CC', 'Review Notes'
             ]
 
             final_reviewed_view = reviewed_past_due[output_cols_reviewed].rename(columns=rename_dict)
@@ -520,7 +519,7 @@ if df is not None:
                 final_reviewed_view,
                 use_container_width=True,
                 hide_index=True,
-                disabled=[col for col in final_reviewed_view.columns if col not in ['Move', 'CC', 'VC', 'Review Notes']],
+                disabled=[col for col in final_reviewed_view.columns if col not in ['Move', 'VC', 'CC', 'Review Notes']],
                 column_config=table_column_config,
                 key="reviewed_data_editor"
             )
@@ -531,11 +530,11 @@ if df is not None:
                 if st.session_state["reviewer_notes"].get(po) != row['Review Notes']:
                     st.session_state["reviewer_notes"][po] = row['Review Notes']
                     state_changed_rev = True
-                if st.session_state["cc_state"].get(po) != row['CC']:
-                    st.session_state["cc_state"][po] = row['CC']
-                    state_changed_rev = True
                 if st.session_state["vc_state"].get(po) != row['VC']:
                     st.session_state["vc_state"][po] = row['VC']
+                    state_changed_rev = True
+                if st.session_state["cc_state"].get(po) != row['CC']:
+                    st.session_state["cc_state"][po] = row['CC']
                     state_changed_rev = True
                 if row['Move']:
                     st.session_state["acknowledged_pos"].remove(po)
