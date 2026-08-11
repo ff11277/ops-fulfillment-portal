@@ -347,10 +347,10 @@ st.markdown("""
 
 <div class="ff-navbar">
     <div class="ff-brand">
-        ⚡ FORCE FITTERS
+        FORCE FITTERS
     </div>
     <div class="ff-user">
-        👤 Vendor Audit Portal
+        Vendor Audit Portal
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -596,7 +596,7 @@ if df is not None:
             "Vendor Order Date": st.column_config.TextColumn("Vendor Order Date", width="small"),
             "Vendor PO": st.column_config.TextColumn("Vendor PO", width="small"),
             "Vendor": st.column_config.TextColumn("Vendor", width="small"),
-            "DSVO": st.column_config.NumberColumn("DSVO", width="small"),
+            "DSVO": st.column_config.NumberColumn("DSVO", width="small", help="Days Since Vendor Order"),
             "Customer Order Date": st.column_config.TextColumn("Customer Order Date", width="small"),
             "Units": st.column_config.NumberColumn("Units", width="small"),
             "Item Notes": st.column_config.TextColumn("Item Notes", width="medium"),
