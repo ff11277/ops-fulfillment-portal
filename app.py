@@ -11,11 +11,15 @@ DATA_FILE = "saved_export.csv"
 ACK_FILE = "saved_acknowledged.json"
 ACK_DATES_FILE = "saved_ack_dates.json"
 RESTORED_FILE = "saved_restored.json"
+CUST_ACK_FILE = "saved_cust_ack.json"
+CUST_ACK_DATES_FILE = "saved_cust_ack_dates.json"
+CUST_RESTORED_FILE = "saved_cust_restored.json"
 NOTES_FILE = "saved_notes.json"
 CC_FILE = "saved_cc.json"
 VC_FILE = "saved_vc.json"
 
 def load_persisted_state():
+    # Vendor PO Persistence
     if "acknowledged_pos" not in st.session_state:
         if os.path.exists(ACK_FILE):
             try:
@@ -46,6 +50,38 @@ def load_persisted_state():
         else:
             st.session_state["restored_pos"] = set()
 
+    # Customer Order Persistence
+    if "cust_acknowledged_orders" not in st.session_state:
+        if os.path.exists(CUST_ACK_FILE):
+            try:
+                with open(CUST_ACK_FILE, "r") as f:
+                    st.session_state["cust_acknowledged_orders"] = set(json.load(f))
+            except Exception:
+                st.session_state["cust_acknowledged_orders"] = set()
+        else:
+            st.session_state["cust_acknowledged_orders"] = set()
+
+    if "cust_acknowledged_dates" not in st.session_state:
+        if os.path.exists(CUST_ACK_DATES_FILE):
+            try:
+                with open(CUST_ACK_DATES_FILE, "r") as f:
+                    st.session_state["cust_acknowledged_dates"] = json.load(f)
+            except Exception:
+                st.session_state["cust_acknowledged_dates"] = {}
+        else:
+            st.session_state["cust_acknowledged_dates"] = {}
+
+    if "cust_restored_orders" not in st.session_state:
+        if os.path.exists(CUST_RESTORED_FILE):
+            try:
+                with open(CUST_RESTORED_FILE, "r") as f:
+                    st.session_state["cust_restored_orders"] = set(json.load(f))
+            except Exception:
+                st.session_state["cust_restored_orders"] = set()
+        else:
+            st.session_state["cust_restored_orders"] = set()
+
+    # Shared Notes & Checkbox Persistence
     if "reviewer_notes" not in st.session_state:
         if os.path.exists(NOTES_FILE):
             try:
@@ -83,6 +119,12 @@ def save_persisted_state():
         json.dump(st.session_state["acknowledged_dates"], f)
     with open(RESTORED_FILE, "w") as f:
         json.dump(list(st.session_state["restored_pos"]), f)
+    with open(CUST_ACK_FILE, "w") as f:
+        json.dump(list(st.session_state["cust_acknowledged_orders"]), f)
+    with open(CUST_ACK_DATES_FILE, "w") as f:
+        json.dump(st.session_state["cust_acknowledged_dates"], f)
+    with open(CUST_RESTORED_FILE, "w") as f:
+        json.dump(list(st.session_state["cust_restored_orders"]), f)
     with open(NOTES_FILE, "w") as f:
         json.dump(st.session_state["reviewer_notes"], f)
     with open(CC_FILE, "w") as f:
@@ -91,12 +133,18 @@ def save_persisted_state():
         json.dump(st.session_state["vc_state"], f)
 
 def clear_all_saved_data():
-    for f in [DATA_FILE, ACK_FILE, ACK_DATES_FILE, RESTORED_FILE, NOTES_FILE, CC_FILE, VC_FILE]:
+    all_files = [DATA_FILE, ACK_FILE, ACK_DATES_FILE, RESTORED_FILE, 
+                 CUST_ACK_FILE, CUST_ACK_DATES_FILE, CUST_RESTORED_FILE, 
+                 NOTES_FILE, CC_FILE, VC_FILE]
+    for f in all_files:
         if os.path.exists(f):
             os.remove(f)
     st.session_state["acknowledged_pos"] = set()
     st.session_state["acknowledged_dates"] = {}
     st.session_state["restored_pos"] = set()
+    st.session_state["cust_acknowledged_orders"] = set()
+    st.session_state["cust_acknowledged_dates"] = {}
+    st.session_state["cust_restored_orders"] = set()
     st.session_state["reviewer_notes"] = {}
     st.session_state["cc_state"] = {}
     st.session_state["vc_state"] = {}
@@ -119,7 +167,6 @@ st.markdown("""
         --text-color: #111827 !important;
     }
 
-    /* Page container spacing fix to un-overlap title from top bar */
     .block-container {
         padding-top: 2.8rem !important;
         padding-bottom: 1rem !important;
@@ -135,7 +182,6 @@ st.markdown("""
         color: #111827 !important;
     }
 
-    /* Tooltip styling fix (white background, dark text) */
     div[data-baseweb="tooltip"], div[role="tooltip"], .stTooltipContent {
         background-color: #FFFFFF !important;
         color: #111827 !important;
@@ -148,7 +194,6 @@ st.markdown("""
         color: #111827 !important;
     }
 
-    /* Top Nav Bar Positioning */
     .ff-navbar {
         background-color: #111111 !important;
         padding: 10px 24px;
@@ -173,7 +218,6 @@ st.markdown("""
         color: #E5E7EB !important;
     }
 
-    /* Compact File Uploader (Half Height) */
     div[data-testid="stFileUploader"] {
         background-color: #FFFFFF !important;
         border: 1px solid #D1D5DB !important;
@@ -241,7 +285,6 @@ st.markdown("""
         color: #000000 !important;
     }
 
-    /* Expander styling fix */
     div[data-testid="stExpander"], 
     div[data-testid="stExpander"] details, 
     div[data-testid="stExpander"] summary,
@@ -370,6 +413,26 @@ if df is not None:
             st.session_state["restored_pos"].add(po)
         save_persisted_state()
 
+    # --- 7-DAY EXPIRATION AUTOMATION FOR REVIEWED CUSTOMER ORDERS ---
+    expired_cust_orders = []
+    for key in list(st.session_state["cust_acknowledged_orders"]):
+        ack_date_str = st.session_state["cust_acknowledged_dates"].get(key)
+        if ack_date_str:
+            try:
+                ack_date = datetime.strptime(ack_date_str, '%Y-%m-%d').date()
+                if (current_today - ack_date).days > 7:
+                    expired_cust_orders.append(key)
+            except ValueError:
+                pass
+
+    if expired_cust_orders:
+        for key in expired_cust_orders:
+            st.session_state["cust_acknowledged_orders"].remove(key)
+            if key in st.session_state["cust_acknowledged_dates"]:
+                del st.session_state["cust_acknowledged_dates"][key]
+            st.session_state["cust_restored_orders"].add(key)
+        save_persisted_state()
+
     # Filter for 'On Order' status
     on_order_df = df[df['Status'] == 'On Order'].copy()
 
@@ -394,6 +457,7 @@ if df is not None:
                 existing_clean_cols = [c for c in clean_cols if c in checked_in_mismatch.columns]
                 st.dataframe(checked_in_mismatch[existing_clean_cols], use_container_width=True, hide_index=True)
 
+        on_order_df['Vendor PO Clean'] = on_order_df['Vendor PO'].fillna('Unassigned PO')
         on_order_df['Vendor Order Date Clean'] = pd.to_datetime(on_order_df['Vendor Order Date'], errors='coerce')
         on_order_df['Date Ordered Clean'] = pd.to_datetime(on_order_df['Date Ordered'], errors='coerce')
         on_order_df['Effective Date'] = on_order_df['Vendor Order Date Clean'].fillna(on_order_df['Date Ordered Clean'])
@@ -406,12 +470,15 @@ if df is not None:
                     unique_notes.append(clean_item)
             return " | ".join(unique_notes) if unique_notes else "-"
 
-        po_summary = on_order_df.groupby(['Vendor', 'Vendor PO']).agg(
+        # ---------------------------------------------------------
+        # SECTION 1: VENDOR PO CALCULATIONS
+        # ---------------------------------------------------------
+        po_summary = on_order_df.groupby(['Vendor', 'Vendor PO Clean'], dropna=False).agg(
             Min_Vendor_Order_Date=('Effective Date', 'min'),
             Min_Customer_Order_Date=('Date Ordered Clean', 'min'),
             Total_Qty=('Qty', 'sum'),
             Combined_Notes=('Notes', combine_notes)
-        ).reset_index()
+        ).reset_index().rename(columns={'Vendor PO Clean': 'Vendor PO'})
 
         po_summary['Days_Open_Vendor'] = (current_date - po_summary['Min_Vendor_Order_Date']).dt.days
 
@@ -424,15 +491,15 @@ if df is not None:
         po_summary['Is_Past_Due'] = po_summary.apply(check_past_due, axis=1)
         all_past_due_df = po_summary[po_summary['Is_Past_Due']].sort_values(by='Days_Open_Vendor', ascending=False)
 
+        # Set of ALL Past Due Vendor POs (Active or Reviewed)
+        all_past_due_po_set = set(all_past_due_df['Vendor PO'])
+
         all_past_due_df['Vendor Order Date'] = all_past_due_df['Min_Vendor_Order_Date'].dt.strftime('%m/%d/%Y')
         all_past_due_df['Customer Order Date'] = all_past_due_df['Min_Customer_Order_Date'].dt.strftime('%m/%d/%Y')
 
-        # Flag column logic: Shows 🚩 if PO was moved back from Reviewed table
         all_past_due_df['Flag'] = all_past_due_df['Vendor PO'].apply(
             lambda po: "🚩" if po in st.session_state["restored_pos"] else ""
         )
-
-        # Map interactive state values
         all_past_due_df['VC'] = all_past_due_df['Vendor PO'].apply(
             lambda po: st.session_state["vc_state"].get(po, False)
         )
@@ -446,12 +513,55 @@ if df is not None:
         active_past_due = all_past_due_df[~all_past_due_df['Vendor PO'].isin(st.session_state["acknowledged_pos"])].copy()
         reviewed_past_due = all_past_due_df[all_past_due_df['Vendor PO'].isin(st.session_state["acknowledged_pos"])].copy()
 
-        # High-Level Metrics
+        # ---------------------------------------------------------
+        # SECTION 2: AGED CUSTOMER ORDERS CALCULATIONS (>21 DAYS, EXCLUDING AGED VENDOR POS)
+        # ---------------------------------------------------------
+        on_order_df['DSVO'] = (current_date - on_order_df['Vendor Order Date Clean']).dt.days
+        on_order_df['DSCO'] = (current_date - on_order_df['Date Ordered Clean']).dt.days
+
+        # Exclude line items whose Vendor PO is ALREADY monitored in Past Due Vendor POs
+        aged_cust_df = on_order_df[(on_order_df['DSCO'] > 21) & (~on_order_df['Vendor PO Clean'].isin(all_past_due_po_set))].copy()
+
+        cust_orders_summary = aged_cust_df.groupby(['Magento Order', 'Vendor', 'Vendor PO Clean'], dropna=False).agg(
+            Min_Customer_Order_Date=('Date Ordered Clean', 'min'),
+            Min_Vendor_Order_Date=('Effective Date', 'min'),
+            DSCO=('DSCO', 'max'),
+            DSVO=('DSVO', 'min'),
+            Total_Qty=('Qty', 'sum'),
+            Combined_Notes=('Notes', combine_notes)
+        ).reset_index().rename(columns={'Vendor PO Clean': 'Vendor PO'})
+
+        cust_orders_summary = cust_orders_summary.sort_values(by='DSCO', ascending=False)
+        cust_orders_summary['Customer Order Date'] = cust_orders_summary['Min_Customer_Order_Date'].dt.strftime('%m/%d/%Y')
+        cust_orders_summary['Vendor Order Date'] = cust_orders_summary['Min_Vendor_Order_Date'].dt.strftime('%m/%d/%Y')
+
+        # Create unique key per customer order line: "MAGENTO_PO"
+        cust_orders_summary['Order_Key'] = cust_orders_summary['Magento Order'].astype(str) + "_" + cust_orders_summary['Vendor PO'].astype(str)
+
+        cust_orders_summary['Flag'] = cust_orders_summary['Order_Key'].apply(
+            lambda key: "🚩" if key in st.session_state["cust_restored_orders"] else ""
+        )
+        cust_orders_summary['VC'] = cust_orders_summary['Order_Key'].apply(
+            lambda key: st.session_state["vc_state"].get(key, False)
+        )
+        cust_orders_summary['CC'] = cust_orders_summary['Order_Key'].apply(
+            lambda key: st.session_state["cc_state"].get(key, False)
+        )
+        cust_orders_summary['Review Notes'] = cust_orders_summary['Order_Key'].apply(
+            lambda key: st.session_state["reviewer_notes"].get(key, "")
+        )
+
+        active_aged_cust = cust_orders_summary[~cust_orders_summary['Order_Key'].isin(st.session_state["cust_acknowledged_orders"])].copy()
+        reviewed_aged_cust = cust_orders_summary[cust_orders_summary['Order_Key'].isin(st.session_state["cust_acknowledged_orders"])].copy()
+
+        # ---------------------------------------------------------
+        # HIGH-LEVEL METRICS
+        # ---------------------------------------------------------
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Total Units On Order", int(on_order_df['Qty'].sum()))
         col2.metric("Active Vendor POs", po_summary['Vendor PO'].nunique())
         col3.metric("Action Required POs", len(active_past_due))
-        col4.metric("Reviewed POs", len(reviewed_past_due))
+        col4.metric("Aged Customer Orders", len(active_aged_cust))
 
         rename_dict = {
             'Days_Open_Vendor': 'DSVO',
@@ -459,7 +569,8 @@ if df is not None:
             'Combined_Notes': 'Item Notes'
         }
 
-        table_column_config = {
+        # Shared Column Configurations
+        po_table_column_config = {
             "Flag": st.column_config.TextColumn("Flag", width=50, help="🚩 Flagged: Re-opened from Reviewed table"),
             "Move": st.column_config.CheckboxColumn("Move", width="small", help="Check to move between tables"),
             "Vendor Order Date": st.column_config.TextColumn("Vendor Order Date", width="small"),
@@ -474,8 +585,28 @@ if df is not None:
             "Review Notes": st.column_config.TextColumn("Review Notes", width="large")
         }
 
-        # --- TABLE 1: ACTION REQUIRED ---
-        st.markdown("### 📋 Action Required (Unreviewed Past Due POs)")
+        cust_table_column_config = {
+            "Flag": st.column_config.TextColumn("Flag", width=50, help="🚩 Flagged: Re-opened from Reviewed table"),
+            "Move": st.column_config.CheckboxColumn("Move", width="small", help="Check to move between tables"),
+            "Magento Order": st.column_config.TextColumn("Order #", width="small"),
+            "Customer Order Date": st.column_config.TextColumn("Customer Order Date", width="small"),
+            "DSCO": st.column_config.NumberColumn("DSCO", width="small", help="Days Since Customer Order"),
+            "Vendor": st.column_config.TextColumn("Vendor", width="small"),
+            "Vendor PO": st.column_config.TextColumn("Vendor PO", width="small"),
+            "Vendor Order Date": st.column_config.TextColumn("Vendor Order Date", width="small"),
+            "DSVO": st.column_config.NumberColumn("DSVO", width="small", help="Days Since Vendor Order"),
+            "Units": st.column_config.NumberColumn("Units", width="small"),
+            "Item Notes": st.column_config.TextColumn("Item Notes", width="medium"),
+            "VC": st.column_config.CheckboxColumn("VC", width="small", help="Vendor Contacted"),
+            "CC": st.column_config.CheckboxColumn("CC", width="small", help="Customer Contacted"),
+            "Review Notes": st.column_config.TextColumn("Review Notes", width="large")
+        }
+
+        # ---------------------------------------------------------
+        # DISPLAY SECTION 1: PAST DUE VENDOR ORDERS
+        # ---------------------------------------------------------
+        st.markdown("---")
+        st.markdown("### 🚨 Past Due Vendor Orders")
         st.caption("💡 Click the **Move** box to shift a PO to the Reviewed table. 🚩 indicates PO to review again.")
 
         if not active_past_due.empty:
@@ -493,7 +624,7 @@ if df is not None:
                 use_container_width=True,
                 hide_index=True,
                 disabled=[col for col in final_active_view.columns if col not in ['Move', 'VC', 'CC', 'Review Notes']],
-                column_config=table_column_config,
+                column_config=po_table_column_config,
                 key="active_data_editor"
             )
 
@@ -522,10 +653,8 @@ if df is not None:
         else:
             st.success("All past-due POs have been moved to Reviewed or resolved!")
 
-        # --- TABLE 2: REVIEWED ---
-        st.markdown("### 📁 Reviewed")
-        st.caption("💡 Items in Reviewed automatically move back to Action Required after 7 days.")
-
+        # --- REVIEWED VENDOR POS TABLE ---
+        st.markdown("#### 📁 Reviewed Vendor POs")
         if not reviewed_past_due.empty:
             reviewed_past_due.insert(1, 'Move', False)
 
@@ -541,7 +670,7 @@ if df is not None:
                 use_container_width=True,
                 hide_index=True,
                 disabled=[col for col in final_reviewed_view.columns if col not in ['Move', 'VC', 'CC', 'Review Notes']],
-                column_config=table_column_config,
+                column_config=po_table_column_config,
                 key="reviewed_data_editor"
             )
 
@@ -568,6 +697,105 @@ if df is not None:
                 save_persisted_state()
                 st.rerun()
         else:
-            st.info("No POs are currently in Reviewed. Check the 'Move' box in Table 1 above to move items here.")
+            st.info("No Vendor POs are currently in Reviewed.")
+
+        # ---------------------------------------------------------
+        # DISPLAY SECTION 2: AGED CUSTOMER ORDERS (>21 DAYS)
+        # ---------------------------------------------------------
+        st.markdown("---")
+        st.markdown("### ⏳ Aged Customer Orders (Customer Wait > 21 Days)")
+        st.caption("💡 Line items with customer order age > 21 days that are **not** already monitored in Past Due Vendor POs above.")
+
+        if not active_aged_cust.empty:
+            active_aged_cust.insert(1, 'Move', False)
+
+            output_cols_cust = [
+                'Flag', 'Move', 'Magento Order', 'Customer Order Date', 'DSCO', 
+                'Vendor', 'Vendor PO', 'Vendor Order Date', 'DSVO', 'Total_Qty', 'Combined_Notes', 
+                'VC', 'CC', 'Review Notes'
+            ]
+
+            final_cust_view = active_aged_cust[output_cols_cust].rename(columns={'Total_Qty': 'Units', 'Combined_Notes': 'Item Notes'})
+
+            edited_cust_view = st.data_editor(
+                final_cust_view,
+                use_container_width=True,
+                hide_index=True,
+                disabled=[col for col in final_cust_view.columns if col not in ['Move', 'VC', 'CC', 'Review Notes']],
+                column_config=cust_table_column_config,
+                key="active_cust_data_editor"
+            )
+
+            state_changed_cust = False
+            for idx, row in edited_cust_view.iterrows():
+                key = str(row['Magento Order']) + "_" + str(row['Vendor PO'])
+                if st.session_state["reviewer_notes"].get(key) != row['Review Notes']:
+                    st.session_state["reviewer_notes"][key] = row['Review Notes']
+                    state_changed_cust = True
+                if st.session_state["vc_state"].get(key) != row['VC']:
+                    st.session_state["vc_state"][key] = row['VC']
+                    state_changed_cust = True
+                if st.session_state["cc_state"].get(key) != row['CC']:
+                    st.session_state["cc_state"][key] = row['CC']
+                    state_changed_cust = True
+                if row['Move']:
+                    st.session_state["cust_acknowledged_orders"].add(key)
+                    st.session_state["cust_acknowledged_dates"][key] = datetime.today().strftime('%Y-%m-%d')
+                    if key in st.session_state["cust_restored_orders"]:
+                        st.session_state["cust_restored_orders"].remove(key)
+                    state_changed_cust = True
+
+            if state_changed_cust:
+                save_persisted_state()
+                st.rerun()
+        else:
+            st.success("All aged customer orders are covered by Past Due Vendor POs or moved to Reviewed!")
+
+        # --- REVIEWED AGED CUSTOMER ORDERS TABLE ---
+        st.markdown("#### 📁 Reviewed Aged Customer Orders")
+        if not reviewed_aged_cust.empty:
+            reviewed_aged_cust.insert(1, 'Move', False)
+
+            output_cols_cust_rev = [
+                'Flag', 'Move', 'Magento Order', 'Customer Order Date', 'DSCO', 
+                'Vendor', 'Vendor PO', 'Vendor Order Date', 'DSVO', 'Total_Qty', 'Combined_Notes', 
+                'VC', 'CC', 'Review Notes'
+            ]
+
+            final_cust_rev_view = reviewed_aged_cust[output_cols_cust_rev].rename(columns={'Total_Qty': 'Units', 'Combined_Notes': 'Item Notes'})
+
+            edited_cust_rev_view = st.data_editor(
+                final_cust_rev_view,
+                use_container_width=True,
+                hide_index=True,
+                disabled=[col for col in final_cust_rev_view.columns if col not in ['Move', 'VC', 'CC', 'Review Notes']],
+                column_config=cust_table_column_config,
+                key="reviewed_cust_data_editor"
+            )
+
+            state_changed_cust_rev = False
+            for idx, row in edited_cust_rev_view.iterrows():
+                key = str(row['Magento Order']) + "_" + str(row['Vendor PO'])
+                if st.session_state["reviewer_notes"].get(key) != row['Review Notes']:
+                    st.session_state["reviewer_notes"][key] = row['Review Notes']
+                    state_changed_cust_rev = True
+                if st.session_state["vc_state"].get(key) != row['VC']:
+                    st.session_state["vc_state"][key] = row['VC']
+                    state_changed_cust_rev = True
+                if st.session_state["cc_state"].get(key) != row['CC']:
+                    st.session_state["cc_state"][key] = row['CC']
+                    state_changed_cust_rev = True
+                if row['Move']:
+                    st.session_state["cust_acknowledged_orders"].remove(key)
+                    if key in st.session_state["cust_acknowledged_dates"]:
+                        del st.session_state["cust_acknowledged_dates"][key]
+                    st.session_state["cust_restored_orders"].add(key)
+                    state_changed_cust_rev = True
+
+            if state_changed_cust_rev:
+                save_persisted_state()
+                st.rerun()
+        else:
+            st.info("No Customer Orders are currently in Reviewed.")
 else:
     st.info("Please upload a CSV export file to begin.")
