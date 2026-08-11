@@ -359,11 +359,7 @@ if df is not None:
 
         checked_in_mismatch = on_order_df[on_order_df['Has_WO']].copy()
         if not checked_in_mismatch.empty:
-            st.warning(
-                f"⚠️ **Data Clean-Up Alert:** Found **{len(checked_in_mismatch)} line item(s)** marked 'On Order' "
-                f"that already have a Work Order number assigned. These items were likely checked in and need their status updated to 'Decorating'."
-            )
-            with st.expander("Review Item Statuses"):
+            with st.expander("⚠️ Review Item Statuses"):
                 clean_cols = ['Magento Order', 'Vendor', 'Vendor PO', wo_col, 'Qty', 'Vendor Order Date', 'Notes']
                 existing_clean_cols = [c for c in clean_cols if c in checked_in_mismatch.columns]
                 st.dataframe(checked_in_mismatch[existing_clean_cols], use_container_width=True, hide_index=True)
@@ -429,10 +425,8 @@ if df is not None:
         col3.metric("Action Required POs", len(active_past_due))
         col4.metric("Reviewed POs", len(reviewed_past_due))
 
-        st.subheader("🚨 Past Due Vendor Orders")
-
         rename_dict = {
-            'Days_Open_Vendor': 'DOV',
+            'Days_Open_Vendor': 'DSVO',
             'Total_Qty': 'Units',
             'Combined_Notes': 'Item Notes'
         }
@@ -443,7 +437,7 @@ if df is not None:
             "Vendor Order Date": st.column_config.TextColumn("Vendor Order Date", width="small"),
             "Vendor PO": st.column_config.TextColumn("Vendor PO", width="small"),
             "Vendor": st.column_config.TextColumn("Vendor", width="small"),
-            "DOV": st.column_config.NumberColumn("DOV", width="small"),
+            "DSVO": st.column_config.NumberColumn("DSVO", width="small"),
             "Customer Order Date": st.column_config.TextColumn("Customer Order Date", width="small"),
             "Units": st.column_config.NumberColumn("Units", width="small"),
             "Item Notes": st.column_config.TextColumn("Item Notes", width="medium"),
