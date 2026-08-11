@@ -157,7 +157,7 @@ APP_PASSWORD = "11277"
 st.set_page_config(page_title="Force Fitters - Vendor Audit Portal", layout="wide", initial_sidebar_state="collapsed")
 
 # ---------------------------------------------------------
-# CUSTOM INJECTED CSS (ERP STYLING & FULL TOP BAR)
+# CUSTOM INJECTED CSS
 # ---------------------------------------------------------
 st.markdown("""
 <style>
@@ -167,14 +167,17 @@ st.markdown("""
         --text-color: #111827 !important;
     }
 
-    /* Hide Streamlit Default Header to prevent overlap */
+    /* Hide Streamlit Header Bar */
     header[data-testid="stHeader"], [data-testid="stHeader"] {
         display: none !important;
     }
 
     .block-container {
         padding-top: 0rem !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
         padding-bottom: 1rem !important;
+        max-width: 100% !important;
     }
 
     .stApp {
@@ -200,14 +203,17 @@ st.markdown("""
         color: #111827 !important;
     }
 
-    /* ERP Top Navbar Styling - Pure Black Bar, White Text, No Icons */
+    /* ERP Top Navbar Styling - Pure Black Bar */
     .ff-navbar {
         background-color: #111111 !important;
         padding: 14px 28px !important;
         display: flex !important;
         align-items: center !important;
         border-bottom: 1px solid #222222 !important;
-        margin: -6rem -5rem 1.8rem -5rem !important;
+        margin-left: -2rem !important;
+        margin-right: -2rem !important;
+        margin-top: 0rem !important;
+        margin-bottom: 1.2rem !important;
     }
     .ff-brand {
         color: #FFFFFF !important;
@@ -260,7 +266,7 @@ st.markdown("""
         font-weight: 800 !important;
     }
 
-    /* ERP Table & Data Editor Formatting */
+    /* ERP Table Formatting */
     div[data-testid="stDataFrame"], div[data-testid="stDataEditor"], div[data-testid="stTable"], .glideDataEditor {
         background-color: #FFFFFF !important;
         border: 1px solid #E5E7EB !important;
@@ -269,7 +275,6 @@ st.markdown("""
         box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
     }
     
-    /* Header Row Styling - Bold ERP Headers */
     div[data-testid="stDataFrame"] header, 
     div[data-testid="stDataEditor"] header, 
     .glideDataEditor .gdg-header-cell {
@@ -373,9 +378,7 @@ if not st.session_state["authenticated"]:
 # ---------------------------------------------------------
 # MAIN APPLICATION
 # ---------------------------------------------------------
-col_header_title, col_clear_btn = st.columns([3, 1])
-with col_header_title:
-    st.markdown("## 📦 Vendor Audit Portal")
+_, col_clear_btn = st.columns([3, 1])
 
 with col_clear_btn:
     if not st.session_state["confirm_clear"]:
@@ -583,7 +586,7 @@ if df is not None:
             'Combined_Notes': 'Item Notes'
         }
 
-        # Shared Column Configurations (With Explicit Tooltips)
+        # Shared Column Configurations (With Explicit DSVO Tooltip)
         po_table_column_config = {
             "Flag": st.column_config.TextColumn("Flag", width=50, help="🚩 Flagged: Re-opened from Reviewed table"),
             "Move": st.column_config.CheckboxColumn("Move", width="small", help="Check to move between tables"),
