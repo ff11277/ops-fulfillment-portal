@@ -119,6 +119,12 @@ st.markdown("""
         --text-color: #111827 !important;
     }
 
+    /* Reduce vertical padding to bring layout up */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+    }
+
     .stApp {
         background-color: #F4F5F7 !important;
         color: #111827 !important;
@@ -144,24 +150,24 @@ st.markdown("""
 
     .ff-navbar {
         background-color: #111111 !important;
-        padding: 14px 24px;
+        padding: 10px 24px;
         display: flex;
         justify-content: space-between;
         align-items: center;
         border-bottom: 2px solid #222222;
-        margin: -6rem -5rem 2rem -5rem;
+        margin: -4rem -5rem 1rem -5rem;
     }
     .ff-navbar *, .ff-brand, .ff-user {
         color: #FFFFFF !important;
     }
     .ff-brand {
-        font-size: 1.25rem;
+        font-size: 1.15rem;
         font-weight: 800;
         letter-spacing: 0.5px;
         text-transform: uppercase;
     }
     .ff-user {
-        font-size: 0.9rem;
+        font-size: 0.85rem;
         font-weight: 500;
         color: #E5E7EB !important;
     }
@@ -170,13 +176,14 @@ st.markdown("""
         background-color: #FFFFFF !important;
         border: 1px solid #D1D5DB !important;
         border-radius: 8px !important;
-        padding: 12px !important;
+        padding: 8px 12px !important;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
     }
     section[data-testid="stFileUploaderDropzone"] {
         background-color: #FFFFFF !important;
-        border: 2px dashed #9CA3AF !important;
+        border: 1px dashed #9CA3AF !important;
         border-radius: 6px !important;
+        padding: 8px !important;
     }
     section[data-testid="stFileUploaderDropzone"] * {
         background-color: #FFFFFF !important;
@@ -187,13 +194,13 @@ st.markdown("""
         background-color: #FFFFFF !important;
         border: 1px solid #D1D5DB !important;
         border-radius: 8px !important;
-        padding: 16px !important;
+        padding: 10px 14px !important;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
     }
     div[data-testid="stMetricLabel"] p {
         color: #4B5563 !important;
         font-weight: 700 !important;
-        font-size: 0.8rem !important;
+        font-size: 0.75rem !important;
         text-transform: uppercase;
     }
     div[data-testid="stMetricValue"] div {
@@ -205,7 +212,7 @@ st.markdown("""
         background-color: #FFFFFF !important;
         border: 1px solid #D1D5DB !important;
         border-radius: 8px !important;
-        padding: 4px !important;
+        padding: 2px !important;
         box-shadow: 0 1px 2px rgba(0,0,0,0.03) !important;
     }
     div[data-testid="stDataFrame"] *, div[data-testid="stDataEditor"] * {
@@ -219,7 +226,7 @@ st.markdown("""
         border-radius: 6px !important;
         font-weight: 600 !important;
         font-size: 0.85rem !important;
-        padding: 6px 14px !important;
+        padding: 4px 12px !important;
     }
     .stButton > button:hover, .stDownloadButton > button:hover, div[data-testid="stFormSubmitButton"] > button:hover {
         background-color: #D1D5DB !important;
@@ -227,10 +234,27 @@ st.markdown("""
         color: #000000 !important;
     }
 
-    div[data-testid="stExpander"] {
+    /* EXPANDER FIX: Prevent turning black on click/focus/expanded state */
+    div[data-testid="stExpander"], 
+    div[data-testid="stExpander"] details, 
+    div[data-testid="stExpander"] summary,
+    div[data-testid="stExpander"] details[open] summary {
         background-color: #FFFFFF !important;
+        color: #111827 !important;
         border: 1px solid #D1D5DB !important;
         border-radius: 8px !important;
+    }
+    div[data-testid="stExpander"] summary:hover, 
+    div[data-testid="stExpander"] summary:focus, 
+    div[data-testid="stExpander"] summary:active,
+    div[data-testid="stExpander"] details[open] summary:hover,
+    div[data-testid="stExpander"] details[open] summary:focus {
+        background-color: #F3F4F6 !important;
+        color: #111827 !important;
+    }
+    div[data-testid="stExpander"] summary * {
+        color: #111827 !important;
+        fill: #111827 !important;
     }
 
     .stTextInput input, .stTextArea textarea {
@@ -244,6 +268,7 @@ st.markdown("""
         background-color: #FEF3C7 !important;
         border: 1px solid #F59E0B !important;
         border-radius: 8px !important;
+        padding: 8px 12px !important;
     }
     div[data-testid="stAlert"] * {
         color: #78350F !important;
@@ -284,24 +309,22 @@ if not st.session_state["authenticated"]:
 # ---------------------------------------------------------
 # MAIN APPLICATION
 # ---------------------------------------------------------
-st.title("📦 Vendor Audit Portal")
+col_header_title, col_clear_btn = st.columns([3, 1])
+with col_header_title:
+    st.markdown("## 📦 Vendor Audit Portal")
 
-col_top1, col_top2 = st.columns([3, 1])
-with col_top1:
-    st.markdown("Upload a new system CSV export file, or continue working with saved audit data.")
-
-with col_top2:
+with col_clear_btn:
     if not st.session_state["confirm_clear"]:
         if st.button("🗑️ Clear Saved Session & Data"):
             st.session_state["confirm_clear"] = True
             st.rerun()
     else:
-        st.warning("Are you sure you want to clear all data?")
+        st.warning("Clear all data?")
         col_yes, col_no = st.columns(2)
         if col_yes.button("Yes", key="confirm_clear_yes"):
             clear_all_saved_data()
             st.session_state["confirm_clear"] = False
-            st.success("Saved data cleared!")
+            st.success("Cleared!")
             st.rerun()
         if col_no.button("No", key="confirm_clear_no"):
             st.session_state["confirm_clear"] = False
@@ -363,8 +386,6 @@ if df is not None:
                 clean_cols = ['Magento Order', 'Vendor', 'Vendor PO', wo_col, 'Qty', 'Vendor Order Date', 'Notes']
                 existing_clean_cols = [c for c in clean_cols if c in checked_in_mismatch.columns]
                 st.dataframe(checked_in_mismatch[existing_clean_cols], use_container_width=True, hide_index=True)
-
-        st.markdown("---")
 
         on_order_df['Vendor Order Date Clean'] = pd.to_datetime(on_order_df['Vendor Order Date'], errors='coerce')
         on_order_df['Date Ordered Clean'] = pd.to_datetime(on_order_df['Date Ordered'], errors='coerce')
@@ -495,7 +516,6 @@ if df is not None:
             st.success("All past-due POs have been moved to Reviewed or resolved!")
 
         # --- TABLE 2: REVIEWED ---
-        st.markdown("---")
         st.markdown("### 📁 Reviewed")
         st.caption("💡 Items in Reviewed automatically move back to Action Required after 7 days.")
 
