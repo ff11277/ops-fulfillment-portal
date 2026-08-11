@@ -119,9 +119,9 @@ st.markdown("""
         --text-color: #111827 !important;
     }
 
-    /* Reduce vertical padding to bring layout up */
+    /* Page container spacing fix to un-overlap title from top bar */
     .block-container {
-        padding-top: 1rem !important;
+        padding-top: 2.8rem !important;
         padding-bottom: 1rem !important;
     }
 
@@ -148,6 +148,7 @@ st.markdown("""
         color: #111827 !important;
     }
 
+    /* Top Nav Bar Positioning */
     .ff-navbar {
         background-color: #111111 !important;
         padding: 10px 24px;
@@ -155,7 +156,7 @@ st.markdown("""
         justify-content: space-between;
         align-items: center;
         border-bottom: 2px solid #222222;
-        margin: -4rem -5rem 1rem -5rem;
+        margin: -4rem -5rem 1.8rem -5rem;
     }
     .ff-navbar *, .ff-brand, .ff-user {
         color: #FFFFFF !important;
@@ -172,18 +173,24 @@ st.markdown("""
         color: #E5E7EB !important;
     }
 
+    /* Compact File Uploader (Half Height) */
     div[data-testid="stFileUploader"] {
         background-color: #FFFFFF !important;
         border: 1px solid #D1D5DB !important;
         border-radius: 8px !important;
-        padding: 8px 12px !important;
+        padding: 4px 10px !important;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
     }
     section[data-testid="stFileUploaderDropzone"] {
         background-color: #FFFFFF !important;
         border: 1px dashed #9CA3AF !important;
         border-radius: 6px !important;
-        padding: 8px !important;
+        padding: 4px 8px !important;
+        min-height: 48px !important;
+    }
+    section[data-testid="stFileUploaderDropzone"] > div {
+        padding-top: 2px !important;
+        padding-bottom: 2px !important;
     }
     section[data-testid="stFileUploaderDropzone"] * {
         background-color: #FFFFFF !important;
@@ -234,7 +241,7 @@ st.markdown("""
         color: #000000 !important;
     }
 
-    /* EXPANDER FIX: Prevent turning black on click/focus/expanded state */
+    /* Expander styling fix */
     div[data-testid="stExpander"], 
     div[data-testid="stExpander"] details, 
     div[data-testid="stExpander"] summary,
