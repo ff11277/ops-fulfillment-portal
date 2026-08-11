@@ -157,7 +157,7 @@ APP_PASSWORD = "11277"
 st.set_page_config(page_title="Force Fitters - Vendor Audit Portal", layout="wide", initial_sidebar_state="collapsed")
 
 # ---------------------------------------------------------
-# CUSTOM INJECTED CSS (MATCHING ERP GRID & HEADER)
+# CUSTOM INJECTED CSS (ERP STYLING & FULL TOP BAR)
 # ---------------------------------------------------------
 st.markdown("""
 <style>
@@ -167,8 +167,13 @@ st.markdown("""
         --text-color: #111827 !important;
     }
 
+    /* Hide Streamlit Default Header to prevent overlap */
+    header[data-testid="stHeader"], [data-testid="stHeader"] {
+        display: none !important;
+    }
+
     .block-container {
-        padding-top: 2.8rem !important;
+        padding-top: 0rem !important;
         padding-bottom: 1rem !important;
     }
 
@@ -195,26 +200,21 @@ st.markdown("""
         color: #111827 !important;
     }
 
-    /* ERP Top Navbar Styling - Clean Black Bar */
+    /* ERP Top Navbar Styling - Pure Black Bar, White Text, No Icons */
     .ff-navbar {
         background-color: #111111 !important;
-        padding: 14px 24px;
-        display: flex;
-        align-items: center;
-        border-bottom: 1px solid #222222;
-        margin: -4rem -5rem 1.8rem -5rem;
+        padding: 14px 28px !important;
+        display: flex !important;
+        align-items: center !important;
+        border-bottom: 1px solid #222222 !important;
+        margin: -6rem -5rem 1.8rem -5rem !important;
     }
     .ff-brand {
         color: #FFFFFF !important;
-        font-size: 1.15rem;
-        font-weight: 800;
-        letter-spacing: 0.5px;
-        text-transform: uppercase;
-    }
-    .ff-brand span.subtitle {
-        font-weight: 500;
-        text-transform: none;
-        color: #E5E7EB !important;
+        font-size: 1.15rem !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.5px !important;
+        font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif !important;
     }
 
     /* Compact File Uploader */
@@ -344,7 +344,7 @@ st.markdown("""
 
 <div class="ff-navbar">
     <div class="ff-brand">
-        FORCE FITTERS <span style="font-weight: 400; color: #6B7280; margin: 0 8px;">|</span> <span class="subtitle">Vendor Audit Portal</span>
+        FORCE FITTERS <span style="color: #6B7280; margin: 0 8px;">|</span> Vendor Audit Portal
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -583,7 +583,7 @@ if df is not None:
             'Combined_Notes': 'Item Notes'
         }
 
-        # Shared Column Configurations (Matching ERP Grid Format with Tooltips)
+        # Shared Column Configurations (With Explicit Tooltips)
         po_table_column_config = {
             "Flag": st.column_config.TextColumn("Flag", width=50, help="🚩 Flagged: Re-opened from Reviewed table"),
             "Move": st.column_config.CheckboxColumn("Move", width="small", help="Check to move between tables"),
