@@ -157,7 +157,7 @@ APP_PASSWORD = "11277"
 st.set_page_config(page_title="Force Fitters - Vendor Audit Portal", layout="wide", initial_sidebar_state="collapsed")
 
 # ---------------------------------------------------------
-# CUSTOM INJECTED CSS (MATCHING ERP GRID)
+# CUSTOM INJECTED CSS (MATCHING ERP GRID & HEADER)
 # ---------------------------------------------------------
 st.markdown("""
 <style>
@@ -195,28 +195,25 @@ st.markdown("""
         color: #111827 !important;
     }
 
-    /* ERP Top Navbar Styling */
+    /* ERP Top Navbar Styling - Clean Black Bar */
     .ff-navbar {
         background-color: #111111 !important;
-        padding: 12px 24px;
+        padding: 14px 24px;
         display: flex;
-        justify-content: space-between;
         align-items: center;
         border-bottom: 1px solid #222222;
         margin: -4rem -5rem 1.8rem -5rem;
     }
-    .ff-navbar *, .ff-brand, .ff-user {
-        color: #FFFFFF !important;
-    }
     .ff-brand {
+        color: #FFFFFF !important;
         font-size: 1.15rem;
         font-weight: 800;
         letter-spacing: 0.5px;
         text-transform: uppercase;
     }
-    .ff-user {
-        font-size: 0.85rem;
+    .ff-brand span.subtitle {
         font-weight: 500;
+        text-transform: none;
         color: #E5E7EB !important;
     }
 
@@ -347,10 +344,7 @@ st.markdown("""
 
 <div class="ff-navbar">
     <div class="ff-brand">
-        FORCE FITTERS
-    </div>
-    <div class="ff-user">
-        Vendor Audit Portal
+        FORCE FITTERS <span style="font-weight: 400; color: #6B7280; margin: 0 8px;">|</span> <span class="subtitle">Vendor Audit Portal</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -589,7 +583,7 @@ if df is not None:
             'Combined_Notes': 'Item Notes'
         }
 
-        # Shared Column Configurations (Matching ERP Grid Format)
+        # Shared Column Configurations (Matching ERP Grid Format with Tooltips)
         po_table_column_config = {
             "Flag": st.column_config.TextColumn("Flag", width=50, help="🚩 Flagged: Re-opened from Reviewed table"),
             "Move": st.column_config.CheckboxColumn("Move", width="small", help="Check to move between tables"),
