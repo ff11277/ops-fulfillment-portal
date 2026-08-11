@@ -157,13 +157,13 @@ APP_PASSWORD = "11277"
 st.set_page_config(page_title="Force Fitters - Vendor Audit Portal", layout="wide", initial_sidebar_state="collapsed")
 
 # ---------------------------------------------------------
-# CUSTOM INJECTED CSS
+# CUSTOM INJECTED CSS (MATCHING ERP GRID)
 # ---------------------------------------------------------
 st.markdown("""
 <style>
     :root {
-        --background-color: #FFFFFF !important;
-        --secondary-background-color: #F4F5F7 !important;
+        --background-color: #F3F4F6 !important;
+        --secondary-background-color: #FFFFFF !important;
         --text-color: #111827 !important;
     }
 
@@ -175,13 +175,14 @@ st.markdown("""
     .stApp {
         background-color: #F4F5F7 !important;
         color: #111827 !important;
-        font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+        font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif !important;
     }
 
     p, span, label, h1, h2, h3, h4, h5, h6, div, .stMarkdown, .stCaption, small, button {
         color: #111827 !important;
     }
 
+    /* Tooltip styling fix */
     div[data-baseweb="tooltip"], div[role="tooltip"], .stTooltipContent {
         background-color: #FFFFFF !important;
         color: #111827 !important;
@@ -194,13 +195,14 @@ st.markdown("""
         color: #111827 !important;
     }
 
+    /* ERP Top Navbar Styling */
     .ff-navbar {
         background-color: #111111 !important;
-        padding: 10px 24px;
+        padding: 12px 24px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        border-bottom: 2px solid #222222;
+        border-bottom: 1px solid #222222;
         margin: -4rem -5rem 1.8rem -5rem;
     }
     .ff-navbar *, .ff-brand, .ff-user {
@@ -218,6 +220,7 @@ st.markdown("""
         color: #E5E7EB !important;
     }
 
+    /* Compact File Uploader */
     div[data-testid="stFileUploader"] {
         background-color: #FFFFFF !important;
         border: 1px solid #D1D5DB !important;
@@ -241,12 +244,13 @@ st.markdown("""
         color: #111827 !important;
     }
 
+    /* Metric Cards */
     div[data-testid="stMetric"], .ff-card {
         background-color: #FFFFFF !important;
-        border: 1px solid #D1D5DB !important;
-        border-radius: 8px !important;
+        border: 1px solid #E5E7EB !important;
+        border-radius: 6px !important;
         padding: 10px 14px !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.03) !important;
     }
     div[data-testid="stMetricLabel"] p {
         color: #4B5563 !important;
@@ -259,17 +263,32 @@ st.markdown("""
         font-weight: 800 !important;
     }
 
+    /* ERP Table & Data Editor Formatting */
     div[data-testid="stDataFrame"], div[data-testid="stDataEditor"], div[data-testid="stTable"], .glideDataEditor {
         background-color: #FFFFFF !important;
-        border: 1px solid #D1D5DB !important;
-        border-radius: 8px !important;
+        border: 1px solid #E5E7EB !important;
+        border-radius: 6px !important;
         padding: 2px !important;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.03) !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
     }
-    div[data-testid="stDataFrame"] *, div[data-testid="stDataEditor"] * {
+    
+    /* Header Row Styling - Bold ERP Headers */
+    div[data-testid="stDataFrame"] header, 
+    div[data-testid="stDataEditor"] header, 
+    .glideDataEditor .gdg-header-cell {
+        background-color: #F9FAFB !important;
         color: #111827 !important;
+        font-weight: 700 !important;
+        font-size: 0.82rem !important;
+        border-bottom: 1px solid #E5E7EB !important;
     }
 
+    div[data-testid="stDataFrame"] *, div[data-testid="stDataEditor"] * {
+        color: #111827 !important;
+        font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif !important;
+    }
+
+    /* Button Styling */
     .stButton > button, .stDownloadButton > button, div[data-testid="stFormSubmitButton"] > button {
         background-color: #E5E7EB !important;
         color: #111827 !important;
@@ -285,6 +304,7 @@ st.markdown("""
         color: #000000 !important;
     }
 
+    /* Expander Styling */
     div[data-testid="stExpander"], 
     div[data-testid="stExpander"] details, 
     div[data-testid="stExpander"] summary,
@@ -569,7 +589,7 @@ if df is not None:
             'Combined_Notes': 'Item Notes'
         }
 
-        # Shared Column Configurations
+        # Shared Column Configurations (Matching ERP Grid Format)
         po_table_column_config = {
             "Flag": st.column_config.TextColumn("Flag", width=50, help="🚩 Flagged: Re-opened from Reviewed table"),
             "Move": st.column_config.CheckboxColumn("Move", width="small", help="Check to move between tables"),
