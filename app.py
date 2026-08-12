@@ -3,142 +3,106 @@ import pandas as pd
 from datetime import datetime
 import json
 import os
+import gspread
+from google.oauth2.service_account import Credentials
 
 # ---------------------------------------------------------
-# PERSISTENCE FILE PATHS
+# CONFIGURATION & SECURITY
 # ---------------------------------------------------------
-DATA_FILE = "saved_export.csv"
-ACK_FILE = "saved_acknowledged.json"
-ACK_DATES_FILE = "saved_ack_dates.json"
-RESTORED_FILE = "saved_restored.json"
-CUST_ACK_FILE = "saved_cust_ack.json"
-CUST_ACK_DATES_FILE = "saved_cust_ack_dates.json"
-CUST_RESTORED_FILE = "saved_cust_restored.json"
-NOTES_FILE = "saved_notes.json"
-CC_FILE = "saved_cc.json"
-VC_FILE = "saved_vc.json"
+APP_PASSWORD = "11277"
+
+st.set_page_config(page_title="Force Fitters - Vendor Audit Portal", layout="wide", initial_sidebar_state="collapsed")
+
+# ---------------------------------------------------------
+# BACKGROUND GOOGLE SHEETS STORAGE CONNECTION
+# ---------------------------------------------------------
+@st.cache_resource
+def get_gspread_sheet():
+    if "gcp_service_account" in st.secrets and "gsheets" in st.secrets:
+        try:
+            scopes = [
+                "https://www.googleapis.com/auth/spreadsheets",
+                "https://www.googleapis.com/auth/drive"
+            ]
+            creds = Credentials.from_service_account_info(
+                st.secrets["gcp_service_account"], scopes=scopes
+            )
+            client = gspread.authorize(creds)
+            sheet = client.open_by_url(st.secrets["gsheets"]["spreadsheet_url"]).sheet1
+            return sheet
+        except Exception:
+            return None
+    return None
 
 def load_persisted_state():
-    # Vendor PO Persistence
     if "acknowledged_pos" not in st.session_state:
-        if os.path.exists(ACK_FILE):
-            try:
-                with open(ACK_FILE, "r") as f:
-                    st.session_state["acknowledged_pos"] = set(json.load(f))
-            except Exception:
-                st.session_state["acknowledged_pos"] = set()
-        else:
-            st.session_state["acknowledged_pos"] = set()
-
+        st.session_state["acknowledged_pos"] = set()
     if "acknowledged_dates" not in st.session_state:
-        if os.path.exists(ACK_DATES_FILE):
-            try:
-                with open(ACK_DATES_FILE, "r") as f:
-                    st.session_state["acknowledged_dates"] = json.load(f)
-            except Exception:
-                st.session_state["acknowledged_dates"] = {}
-        else:
-            st.session_state["acknowledged_dates"] = {}
-
+        st.session_state["acknowledged_dates"] = {}
     if "restored_pos" not in st.session_state:
-        if os.path.exists(RESTORED_FILE):
-            try:
-                with open(RESTORED_FILE, "r") as f:
-                    st.session_state["restored_pos"] = set(json.load(f))
-            except Exception:
-                st.session_state["restored_pos"] = set()
-        else:
-            st.session_state["restored_pos"] = set()
+        st.session_state["restored_pos"] = set()
 
-    # Customer Order Persistence
     if "cust_acknowledged_orders" not in st.session_state:
-        if os.path.exists(CUST_ACK_FILE):
-            try:
-                with open(CUST_ACK_FILE, "r") as f:
-                    st.session_state["cust_acknowledged_orders"] = set(json.load(f))
-            except Exception:
-                st.session_state["cust_acknowledged_orders"] = set()
-        else:
-            st.session_state["cust_acknowledged_orders"] = set()
-
+        st.session_state["cust_acknowledged_orders"] = set()
     if "cust_acknowledged_dates" not in st.session_state:
-        if os.path.exists(CUST_ACK_DATES_FILE):
-            try:
-                with open(CUST_ACK_DATES_FILE, "r") as f:
-                    st.session_state["cust_acknowledged_dates"] = json.load(f)
-            except Exception:
-                st.session_state["cust_acknowledged_dates"] = {}
-        else:
-            st.session_state["cust_acknowledged_dates"] = {}
-
+        st.session_state["cust_acknowledged_dates"] = {}
     if "cust_restored_orders" not in st.session_state:
-        if os.path.exists(CUST_RESTORED_FILE):
-            try:
-                with open(CUST_RESTORED_FILE, "r") as f:
-                    st.session_state["cust_restored_orders"] = set(json.load(f))
-            except Exception:
-                st.session_state["cust_restored_orders"] = set()
-        else:
-            st.session_state["cust_restored_orders"] = set()
+        st.session_state["cust_restored_orders"] = set()
 
-    # Shared Notes & Checkbox Persistence
     if "reviewer_notes" not in st.session_state:
-        if os.path.exists(NOTES_FILE):
-            try:
-                with open(NOTES_FILE, "r") as f:
-                    st.session_state["reviewer_notes"] = json.load(f)
-            except Exception:
-                st.session_state["reviewer_notes"] = {}
-        else:
-            st.session_state["reviewer_notes"] = {}
-
+        st.session_state["reviewer_notes"] = {}
     if "cc_state" not in st.session_state:
-        if os.path.exists(CC_FILE):
-            try:
-                with open(CC_FILE, "r") as f:
-                    st.session_state["cc_state"] = json.load(f)
-            except Exception:
-                st.session_state["cc_state"] = {}
-        else:
-            st.session_state["cc_state"] = {}
-
+        st.session_state["cc_state"] = {}
     if "vc_state" not in st.session_state:
-        if os.path.exists(VC_FILE):
-            try:
-                with open(VC_FILE, "r") as f:
-                    st.session_state["vc_state"] = json.load(f)
-            except Exception:
-                st.session_state["vc_state"] = {}
-        else:
-            st.session_state["vc_state"] = {}
+        st.session_state["vc_state"] = {}
 
-def save_persisted_state():
-    with open(ACK_FILE, "w") as f:
-        json.dump(list(st.session_state["acknowledged_pos"]), f)
-    with open(ACK_DATES_FILE, "w") as f:
-        json.dump(st.session_state["acknowledged_dates"], f)
-    with open(RESTORED_FILE, "w") as f:
-        json.dump(list(st.session_state["restored_pos"]), f)
-    with open(CUST_ACK_FILE, "w") as f:
-        json.dump(list(st.session_state["cust_acknowledged_orders"]), f)
-    with open(CUST_ACK_DATES_FILE, "w") as f:
-        json.dump(st.session_state["cust_acknowledged_dates"], f)
-    with open(CUST_RESTORED_FILE, "w") as f:
-        json.dump(list(st.session_state["cust_restored_orders"]), f)
-    with open(NOTES_FILE, "w") as f:
-        json.dump(st.session_state["reviewer_notes"], f)
-    with open(CC_FILE, "w") as f:
-        json.dump(st.session_state["cc_state"], f)
-    with open(VC_FILE, "w") as f:
-        json.dump(st.session_state["vc_state"], f)
+    sheet = get_gspread_sheet()
+    if sheet and "cloud_loaded" not in st.session_state:
+        try:
+            records = sheet.get_all_records()
+            for row in records:
+                key = str(row.get("key_id", "")).strip()
+                if not key:
+                    continue
+                st.session_state["reviewer_notes"][key] = str(row.get("review_notes", ""))
+                st.session_state["vc_state"][key] = str(row.get("vc", "")).upper() == "TRUE"
+                st.session_state["cc_state"][key] = str(row.get("cc", "")).upper() == "TRUE"
+
+                is_reviewed = str(row.get("is_reviewed", "")).upper() == "TRUE"
+                is_cust_order = str(row.get("is_cust_order", "")).upper() == "TRUE"
+                rev_date = str(row.get("reviewed_date", "")).strip()
+
+                if is_reviewed:
+                    if is_cust_order:
+                        st.session_state["cust_acknowledged_orders"].add(key)
+                        if rev_date:
+                            st.session_state["cust_acknowledged_dates"][key] = rev_date
+                    else:
+                        st.session_state["acknowledged_pos"].add(key)
+                        if rev_date:
+                            st.session_state["acknowledged_dates"][key] = rev_date
+            st.session_state["cloud_loaded"] = True
+        except Exception:
+            pass
+
+def save_key_state_to_cloud(key_id, review_notes="", vc=False, cc=False, is_reviewed=False, is_cust_order=False, reviewed_date=""):
+    sheet = get_gspread_sheet()
+    if not sheet:
+        return
+    try:
+        str_key = str(key_id)
+        cell = sheet.find(str_key)
+        now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        row_data = [str_key, str(review_notes), bool(vc), bool(cc), bool(is_reviewed), bool(is_cust_order), str(reviewed_date or ""), now_str]
+        
+        if cell:
+            sheet.update(f"A{cell.row}:H{cell.row}", [row_data])
+        else:
+            sheet.append_row(row_data)
+    except Exception:
+        pass
 
 def clear_all_saved_data():
-    all_files = [DATA_FILE, ACK_FILE, ACK_DATES_FILE, RESTORED_FILE, 
-                 CUST_ACK_FILE, CUST_ACK_DATES_FILE, CUST_RESTORED_FILE, 
-                 NOTES_FILE, CC_FILE, VC_FILE]
-    for f in all_files:
-        if os.path.exists(f):
-            os.remove(f)
     st.session_state["acknowledged_pos"] = set()
     st.session_state["acknowledged_dates"] = {}
     st.session_state["restored_pos"] = set()
@@ -148,13 +112,13 @@ def clear_all_saved_data():
     st.session_state["reviewer_notes"] = {}
     st.session_state["cc_state"] = {}
     st.session_state["vc_state"] = {}
-
-# ---------------------------------------------------------
-# CONFIGURATION & SECURITY
-# ---------------------------------------------------------
-APP_PASSWORD = "11277"
-
-st.set_page_config(page_title="Force Fitters - Vendor Audit Portal", layout="wide", initial_sidebar_state="collapsed")
+    
+    sheet = get_gspread_sheet()
+    if sheet:
+        try:
+            sheet.resize(rows=1)
+        except Exception:
+            pass
 
 # ---------------------------------------------------------
 # CUSTOM INJECTED CSS
@@ -167,7 +131,6 @@ st.markdown("""
         --text-color: #111827 !important;
     }
 
-    /* Hide Streamlit Header Bar */
     header[data-testid="stHeader"], [data-testid="stHeader"] {
         display: none !important;
     }
@@ -190,7 +153,6 @@ st.markdown("""
         color: #111827 !important;
     }
 
-    /* Tooltip styling fix */
     div[data-baseweb="tooltip"], div[role="tooltip"], .stTooltipContent {
         background-color: #FFFFFF !important;
         color: #111827 !important;
@@ -203,7 +165,6 @@ st.markdown("""
         color: #111827 !important;
     }
 
-    /* ERP Top Navbar Styling - Pure Black Bar */
     .ff-navbar {
         background-color: #111111 !important;
         padding: 14px 28px !important;
@@ -223,7 +184,6 @@ st.markdown("""
         font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif !important;
     }
 
-    /* Compact File Uploader */
     div[data-testid="stFileUploader"] {
         background-color: #FFFFFF !important;
         border: 1px solid #D1D5DB !important;
@@ -247,7 +207,6 @@ st.markdown("""
         color: #111827 !important;
     }
 
-    /* Metric Cards */
     div[data-testid="stMetric"], .ff-card {
         background-color: #FFFFFF !important;
         border: 1px solid #E5E7EB !important;
@@ -266,7 +225,6 @@ st.markdown("""
         font-weight: 800 !important;
     }
 
-    /* ERP Table Formatting */
     div[data-testid="stDataFrame"], div[data-testid="stDataEditor"], div[data-testid="stTable"], .glideDataEditor {
         background-color: #FFFFFF !important;
         border: 1px solid #E5E7EB !important;
@@ -290,7 +248,6 @@ st.markdown("""
         font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif !important;
     }
 
-    /* Button Styling */
     .stButton > button, .stDownloadButton > button, div[data-testid="stFormSubmitButton"] > button {
         background-color: #E5E7EB !important;
         color: #111827 !important;
@@ -306,7 +263,6 @@ st.markdown("""
         color: #000000 !important;
     }
 
-    /* Expander Styling */
     div[data-testid="stExpander"], 
     div[data-testid="stExpander"] details, 
     div[data-testid="stExpander"] summary,
@@ -402,9 +358,9 @@ uploaded_file = st.file_uploader("Only upload On Order export from [here](https:
 df = None
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
-    df.to_csv(DATA_FILE, index=False)
-elif os.path.exists(DATA_FILE):
-    df = pd.read_csv(DATA_FILE)
+    st.session_state["latest_df"] = df
+elif "latest_df" in st.session_state:
+    df = st.session_state["latest_df"]
 
 if df is not None:
     current_date = pd.to_datetime(datetime.today().strftime('%Y-%m-%d'))
@@ -428,7 +384,6 @@ if df is not None:
             if po in st.session_state["acknowledged_dates"]:
                 del st.session_state["acknowledged_dates"][po]
             st.session_state["restored_pos"].add(po)
-        save_persisted_state()
 
     # --- 7-DAY EXPIRATION AUTOMATION FOR REVIEWED CUSTOMER ORDERS ---
     expired_cust_orders = []
@@ -448,7 +403,6 @@ if df is not None:
             if key in st.session_state["cust_acknowledged_dates"]:
                 del st.session_state["cust_acknowledged_dates"][key]
             st.session_state["cust_restored_orders"].add(key)
-        save_persisted_state()
 
     # Filter for 'On Order' status
     on_order_df = df[df['Status'] == 'On Order'].copy()
@@ -507,8 +461,6 @@ if df is not None:
 
         po_summary['Is_Past_Due'] = po_summary.apply(check_past_due, axis=1)
         all_past_due_df = po_summary[po_summary['Is_Past_Due']].sort_values(by='Days_Open_Vendor', ascending=False)
-
-        # Set of ALL Past Due Vendor POs (Active or Reviewed)
         all_past_due_po_set = set(all_past_due_df['Vendor PO'])
 
         all_past_due_df['Vendor Order Date'] = all_past_due_df['Min_Vendor_Order_Date'].dt.strftime('%m/%d/%Y')
@@ -531,12 +483,11 @@ if df is not None:
         reviewed_past_due = all_past_due_df[all_past_due_df['Vendor PO'].isin(st.session_state["acknowledged_pos"])].copy()
 
         # ---------------------------------------------------------
-        # SECTION 2: AGED CUSTOMER ORDERS CALCULATIONS (>21 DAYS, EXCLUDING AGED VENDOR POS)
+        # SECTION 2: AGED CUSTOMER ORDERS (>21 DAYS)
         # ---------------------------------------------------------
         on_order_df['DSVO'] = (current_date - on_order_df['Vendor Order Date Clean']).dt.days
         on_order_df['DSCO'] = (current_date - on_order_df['Date Ordered Clean']).dt.days
 
-        # Exclude line items whose Vendor PO is ALREADY monitored in Past Due Vendor POs
         aged_cust_df = on_order_df[(on_order_df['DSCO'] > 21) & (~on_order_df['Vendor PO Clean'].isin(all_past_due_po_set))].copy()
 
         cust_orders_summary = aged_cust_df.groupby(['Magento Order', 'Vendor', 'Vendor PO Clean'], dropna=False).agg(
@@ -552,7 +503,6 @@ if df is not None:
         cust_orders_summary['Customer Order Date'] = cust_orders_summary['Min_Customer_Order_Date'].dt.strftime('%m/%d/%Y')
         cust_orders_summary['Vendor Order Date'] = cust_orders_summary['Min_Vendor_Order_Date'].dt.strftime('%m/%d/%Y')
 
-        # Create unique key per customer order line: "MAGENTO_PO"
         cust_orders_summary['Order_Key'] = cust_orders_summary['Magento Order'].astype(str) + "_" + cust_orders_summary['Vendor PO'].astype(str)
 
         cust_orders_summary['Flag'] = cust_orders_summary['Order_Key'].apply(
@@ -586,7 +536,7 @@ if df is not None:
             'Combined_Notes': 'Item Notes'
         }
 
-        # Shared Column Configurations (With Explicit DSVO Tooltip)
+        # Shared Column Configurations
         po_table_column_config = {
             "Flag": st.column_config.TextColumn("Flag", width=50, help="🚩 Flagged: Re-opened from Reviewed table"),
             "Move": st.column_config.CheckboxColumn("Move", width="small", help="Check to move between tables"),
@@ -648,24 +598,31 @@ if df is not None:
             state_changed = False
             for _, row in edited_active_view.iterrows():
                 po = row['Vendor PO']
-                if st.session_state["reviewer_notes"].get(po) != row['Review Notes']:
-                    st.session_state["reviewer_notes"][po] = row['Review Notes']
-                    state_changed = True
-                if st.session_state["vc_state"].get(po) != row['VC']:
-                    st.session_state["vc_state"][po] = row['VC']
-                    state_changed = True
-                if st.session_state["cc_state"].get(po) != row['CC']:
-                    st.session_state["cc_state"][po] = row['CC']
-                    state_changed = True
-                if row['Move']:
-                    st.session_state["acknowledged_pos"].add(po)
-                    st.session_state["acknowledged_dates"][po] = datetime.today().strftime('%Y-%m-%d')
-                    if po in st.session_state["restored_pos"]:
-                        st.session_state["restored_pos"].remove(po)
+                note = row['Review Notes']
+                vc = row['VC']
+                cc = row['CC']
+                
+                if (st.session_state["reviewer_notes"].get(po) != note or 
+                    st.session_state["vc_state"].get(po) != vc or 
+                    st.session_state["cc_state"].get(po) != cc or 
+                    row['Move']):
+                    
+                    st.session_state["reviewer_notes"][po] = note
+                    st.session_state["vc_state"][po] = vc
+                    st.session_state["cc_state"][po] = cc
+                    
+                    is_reviewed = row['Move']
+                    if row['Move']:
+                        st.session_state["acknowledged_pos"].add(po)
+                        rev_date = datetime.today().strftime('%Y-%m-%d')
+                        st.session_state["acknowledged_dates"][po] = rev_date
+                    else:
+                        rev_date = st.session_state["acknowledged_dates"].get(po)
+                        
+                    save_key_state_to_cloud(po, review_notes=note, vc=vc, cc=cc, is_reviewed=is_reviewed, is_cust_order=False, reviewed_date=rev_date)
                     state_changed = True
 
             if state_changed:
-                save_persisted_state()
                 st.rerun()
         else:
             st.success("All past-due POs have been moved to Reviewed or resolved!")
@@ -694,24 +651,28 @@ if df is not None:
             state_changed_rev = False
             for _, row in edited_reviewed_view.iterrows():
                 po = row['Vendor PO']
-                if st.session_state["reviewer_notes"].get(po) != row['Review Notes']:
-                    st.session_state["reviewer_notes"][po] = row['Review Notes']
-                    state_changed_rev = True
-                if st.session_state["vc_state"].get(po) != row['VC']:
-                    st.session_state["vc_state"][po] = row['VC']
-                    state_changed_rev = True
-                if st.session_state["cc_state"].get(po) != row['CC']:
-                    st.session_state["cc_state"][po] = row['CC']
-                    state_changed_rev = True
-                if row['Move']:
-                    st.session_state["acknowledged_pos"].remove(po)
-                    if po in st.session_state["acknowledged_dates"]:
-                        del st.session_state["acknowledged_dates"][po]
-                    st.session_state["restored_pos"].add(po)
+                note = row['Review Notes']
+                vc = row['VC']
+                cc = row['CC']
+                
+                if (st.session_state["reviewer_notes"].get(po) != note or 
+                    st.session_state["vc_state"].get(po) != vc or 
+                    st.session_state["cc_state"].get(po) != cc or 
+                    row['Move']):
+                    
+                    st.session_state["reviewer_notes"][po] = note
+                    st.session_state["vc_state"][po] = vc
+                    st.session_state["cc_state"][po] = cc
+                    
+                    is_reviewed = not row['Move']
+                    if row['Move']:
+                        st.session_state["acknowledged_pos"].remove(po)
+                        st.session_state["restored_pos"].add(po)
+                        
+                    save_key_state_to_cloud(po, review_notes=note, vc=vc, cc=cc, is_reviewed=is_reviewed, is_cust_order=False)
                     state_changed_rev = True
 
             if state_changed_rev:
-                save_persisted_state()
                 st.rerun()
         else:
             st.info("No Vendor POs are currently in Reviewed.")
@@ -746,24 +707,31 @@ if df is not None:
             state_changed_cust = False
             for idx, row in edited_cust_view.iterrows():
                 key = str(row['Magento Order']) + "_" + str(row['Vendor PO'])
-                if st.session_state["reviewer_notes"].get(key) != row['Review Notes']:
-                    st.session_state["reviewer_notes"][key] = row['Review Notes']
-                    state_changed_cust = True
-                if st.session_state["vc_state"].get(key) != row['VC']:
-                    st.session_state["vc_state"][key] = row['VC']
-                    state_changed_cust = True
-                if st.session_state["cc_state"].get(key) != row['CC']:
-                    st.session_state["cc_state"][key] = row['CC']
-                    state_changed_cust = True
-                if row['Move']:
-                    st.session_state["cust_acknowledged_orders"].add(key)
-                    st.session_state["cust_acknowledged_dates"][key] = datetime.today().strftime('%Y-%m-%d')
-                    if key in st.session_state["cust_restored_orders"]:
-                        st.session_state["cust_restored_orders"].remove(key)
+                note = row['Review Notes']
+                vc = row['VC']
+                cc = row['CC']
+                
+                if (st.session_state["reviewer_notes"].get(key) != note or 
+                    st.session_state["vc_state"].get(key) != vc or 
+                    st.session_state["cc_state"].get(key) != cc or 
+                    row['Move']):
+                    
+                    st.session_state["reviewer_notes"][key] = note
+                    st.session_state["vc_state"][key] = vc
+                    st.session_state["cc_state"][key] = cc
+                    
+                    is_reviewed = row['Move']
+                    if row['Move']:
+                        st.session_state["cust_acknowledged_orders"].add(key)
+                        rev_date = datetime.today().strftime('%Y-%m-%d')
+                        st.session_state["cust_acknowledged_dates"][key] = rev_date
+                    else:
+                        rev_date = st.session_state["cust_acknowledged_dates"].get(key)
+                        
+                    save_key_state_to_cloud(key, review_notes=note, vc=vc, cc=cc, is_reviewed=is_reviewed, is_cust_order=True, reviewed_date=rev_date)
                     state_changed_cust = True
 
             if state_changed_cust:
-                save_persisted_state()
                 st.rerun()
         else:
             st.success("All aged customer orders are covered by Past Due Vendor POs or moved to Reviewed!")
@@ -793,24 +761,28 @@ if df is not None:
             state_changed_cust_rev = False
             for idx, row in edited_cust_rev_view.iterrows():
                 key = str(row['Magento Order']) + "_" + str(row['Vendor PO'])
-                if st.session_state["reviewer_notes"].get(key) != row['Review Notes']:
-                    st.session_state["reviewer_notes"][key] = row['Review Notes']
-                    state_changed_cust_rev = True
-                if st.session_state["vc_state"].get(key) != row['VC']:
-                    st.session_state["vc_state"][key] = row['VC']
-                    state_changed_cust_rev = True
-                if st.session_state["cc_state"].get(key) != row['CC']:
-                    st.session_state["cc_state"][key] = row['CC']
-                    state_changed_cust_rev = True
-                if row['Move']:
-                    st.session_state["cust_acknowledged_orders"].remove(key)
-                    if key in st.session_state["cust_acknowledged_dates"]:
-                        del st.session_state["cust_acknowledged_dates"][key]
-                    st.session_state["cust_restored_orders"].add(key)
+                note = row['Review Notes']
+                vc = row['VC']
+                cc = row['CC']
+                
+                if (st.session_state["reviewer_notes"].get(key) != note or 
+                    st.session_state["vc_state"].get(key) != vc or 
+                    st.session_state["cc_state"].get(key) != cc or 
+                    row['Move']):
+                    
+                    st.session_state["reviewer_notes"][key] = note
+                    st.session_state["vc_state"][key] = vc
+                    st.session_state["cc_state"][key] = cc
+                    
+                    is_reviewed = not row['Move']
+                    if row['Move']:
+                        st.session_state["cust_acknowledged_orders"].remove(key)
+                        st.session_state["cust_restored_orders"].add(key)
+                        
+                    save_key_state_to_cloud(key, review_notes=note, vc=vc, cc=cc, is_reviewed=is_reviewed, is_cust_order=True)
                     state_changed_cust_rev = True
 
             if state_changed_cust_rev:
-                save_persisted_state()
                 st.rerun()
         else:
             st.info("No Customer Orders are currently in Reviewed.")
