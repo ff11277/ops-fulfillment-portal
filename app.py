@@ -13,7 +13,7 @@ SHEET_HEADERS = ["key_id", "review_notes", "vc", "cc", "is_reviewed", "is_cust_o
 st.set_page_config(page_title="Force Fitters - Vendor Audit Portal", layout="wide", initial_sidebar_state="collapsed")
 
 def clean_key_str(val):
-    if pd.isna(val):
+    if pd.isna(val) or val is None:
         return ""
     s = str(val).strip()
     if s.endswith(".0"):
@@ -40,14 +40,16 @@ def get_gspread_sheet():
             sheet = client.open_by_url(st.secrets["gsheets"]["spreadsheet_url"]).sheet1
             
             first_row = sheet.row_values(1)
-            if not first_row or first_row[0] != "key_id":
+            if not first_row or clean_key_str(first_row[0]).lower() != "key_id":
                 sheet.insert_row(SHEET_HEADERS, 1)
                 
             return sheet
         except Exception as e:
             st.error(f"Google Sheets Connection Error: {e}")
             return None
-    return None
+    else:
+        st.error("Streamlit Secrets missing [gcp_service_account] or [gsheets].")
+        return None
 
 def load_persisted_state():
     if "acknowledged_pos" not in st.session_state:
@@ -74,30 +76,41 @@ def load_persisted_state():
     sheet = get_gspread_sheet()
     if sheet and "cloud_loaded" not in st.session_state:
         try:
-            records = sheet.get_all_records()
-            for row in records:
-                key = clean_key_str(row.get("key_id", ""))
-                if not key:
-                    continue
+            all_rows = sheet.get_all_values()
+            if all_rows:
+                header_row = [str(c).strip().lower() for c in all_rows[0]]
+                start_idx = 1 if "key_id" in header_row else 0
                 
-                note_val = clean_key_str(row.get("review_notes", ""))
-                st.session_state["reviewer_notes"][key] = note_val
-                st.session_state["vc_state"][key] = str(row.get("vc", "")).upper() in ["TRUE", "1"]
-                st.session_state["cc_state"][key] = str(row.get("cc", "")).upper() in ["TRUE", "1"]
+                for row in all_rows[start_idx:]:
+                    if not row:
+                        continue
+                    while len(row) < 8:
+                        row.append("")
+                        
+                    key = clean_key_str(row[0])
+                    if not key or key.lower() == "key_id":
+                        continue
+                    
+                    note_val = clean_key_str(row[1])
+                    vc_val = str(row[2]).strip().upper() in ["TRUE", "1", "YES"]
+                    cc_val = str(row[3]).strip().upper() in ["TRUE", "1", "YES"]
+                    is_reviewed = str(row[4]).strip().upper() in ["TRUE", "1", "YES"]
+                    is_cust_order = str(row[5]).strip().upper() in ["TRUE", "1", "YES"]
+                    rev_date = clean_key_str(row[6])
 
-                is_reviewed = str(row.get("is_reviewed", "")).upper() in ["TRUE", "1"]
-                is_cust_order = str(row.get("is_cust_order", "")).upper() in ["TRUE", "1"]
-                rev_date = clean_key_str(row.get("reviewed_date", ""))
+                    st.session_state["reviewer_notes"][key] = note_val
+                    st.session_state["vc_state"][key] = vc_val
+                    st.session_state["cc_state"][key] = cc_val
 
-                if is_reviewed:
-                    if is_cust_order:
-                        st.session_state["cust_acknowledged_orders"].add(key)
-                        if rev_date:
-                            st.session_state["cust_acknowledged_dates"][key] = rev_date
-                    else:
-                        st.session_state["acknowledged_pos"].add(key)
-                        if rev_date:
-                            st.session_state["acknowledged_dates"][key] = rev_date
+                    if is_reviewed:
+                        if is_cust_order:
+                            st.session_state["cust_acknowledged_orders"].add(key)
+                            if rev_date:
+                                st.session_state["cust_acknowledged_dates"][key] = rev_date
+                        else:
+                            st.session_state["acknowledged_pos"].add(key)
+                            if rev_date:
+                                st.session_state["acknowledged_dates"][key] = rev_date
             st.session_state["cloud_loaded"] = True
         except Exception as e:
             st.error(f"Error loading saved state: {e}")
@@ -112,7 +125,16 @@ def save_key_state_to_cloud(key_id, review_notes="", vc=False, cc=False, is_revi
             return
         now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         clean_note = clean_key_str(review_notes)
-        row_data = [str_key, clean_note, bool(vc), bool(cc), bool(is_reviewed), bool(is_cust_order), str(reviewed_date or ""), now_str]
+        row_data = [
+            str_key, 
+            clean_note, 
+            "TRUE" if vc else "FALSE", 
+            "TRUE" if cc else "FALSE", 
+            "TRUE" if is_reviewed else "FALSE", 
+            "TRUE" if is_cust_order else "FALSE", 
+            str(reviewed_date or ""), 
+            now_str
+        ]
         
         col_keys = [clean_key_str(k) for k in sheet.col_values(1)]
         if str_key in col_keys:
@@ -356,7 +378,11 @@ if not st.session_state["authenticated"]:
 # ---------------------------------------------------------
 # MAIN APPLICATION
 # ---------------------------------------------------------
-_, col_clear_btn = st.columns([3, 1])
+col_info, col_clear_btn = st.columns([3, 1])
+
+with col_info:
+    synced_total = len(st.session_state.get("reviewer_notes", {}))
+    st.caption(f"🟢 Database Connected: **{synced_total}** records synchronized from Google Sheets.")
 
 with col_clear_btn:
     if not st.session_state["confirm_clear"]:
