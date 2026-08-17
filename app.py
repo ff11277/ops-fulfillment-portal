@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import json
-import os
 import gspread
 from google.oauth2.service_account import Credentials
 
@@ -10,8 +8,19 @@ from google.oauth2.service_account import Credentials
 # CONFIGURATION & SECURITY
 # ---------------------------------------------------------
 APP_PASSWORD = "11277"
+SHEET_HEADERS = ["key_id", "review_notes", "vc", "cc", "is_reviewed", "is_cust_order", "reviewed_date", "updated_at"]
 
 st.set_page_config(page_title="Force Fitters - Vendor Audit Portal", layout="wide", initial_sidebar_state="collapsed")
+
+def clean_key_str(val):
+    if pd.isna(val):
+        return ""
+    s = str(val).strip()
+    if s.endswith(".0"):
+        s = s[:-2]
+    if s.lower() in ["nan", "none", "<na>"]:
+        return ""
+    return s
 
 # ---------------------------------------------------------
 # BACKGROUND GOOGLE SHEETS STORAGE CONNECTION
@@ -29,8 +38,14 @@ def get_gspread_sheet():
             )
             client = gspread.authorize(creds)
             sheet = client.open_by_url(st.secrets["gsheets"]["spreadsheet_url"]).sheet1
+            
+            first_row = sheet.row_values(1)
+            if not first_row or first_row[0] != "key_id":
+                sheet.insert_row(SHEET_HEADERS, 1)
+                
             return sheet
-        except Exception:
+        except Exception as e:
+            st.error(f"Google Sheets Connection Error: {e}")
             return None
     return None
 
@@ -61,16 +76,18 @@ def load_persisted_state():
         try:
             records = sheet.get_all_records()
             for row in records:
-                key = str(row.get("key_id", "")).strip()
+                key = clean_key_str(row.get("key_id", ""))
                 if not key:
                     continue
-                st.session_state["reviewer_notes"][key] = str(row.get("review_notes", ""))
-                st.session_state["vc_state"][key] = str(row.get("vc", "")).upper() == "TRUE"
-                st.session_state["cc_state"][key] = str(row.get("cc", "")).upper() == "TRUE"
+                
+                note_val = clean_key_str(row.get("review_notes", ""))
+                st.session_state["reviewer_notes"][key] = note_val
+                st.session_state["vc_state"][key] = str(row.get("vc", "")).upper() in ["TRUE", "1"]
+                st.session_state["cc_state"][key] = str(row.get("cc", "")).upper() in ["TRUE", "1"]
 
-                is_reviewed = str(row.get("is_reviewed", "")).upper() == "TRUE"
-                is_cust_order = str(row.get("is_cust_order", "")).upper() == "TRUE"
-                rev_date = str(row.get("reviewed_date", "")).strip()
+                is_reviewed = str(row.get("is_reviewed", "")).upper() in ["TRUE", "1"]
+                is_cust_order = str(row.get("is_cust_order", "")).upper() in ["TRUE", "1"]
+                rev_date = clean_key_str(row.get("reviewed_date", ""))
 
                 if is_reviewed:
                     if is_cust_order:
@@ -82,25 +99,29 @@ def load_persisted_state():
                         if rev_date:
                             st.session_state["acknowledged_dates"][key] = rev_date
             st.session_state["cloud_loaded"] = True
-        except Exception:
-            pass
+        except Exception as e:
+            st.error(f"Error loading saved state: {e}")
 
 def save_key_state_to_cloud(key_id, review_notes="", vc=False, cc=False, is_reviewed=False, is_cust_order=False, reviewed_date=""):
     sheet = get_gspread_sheet()
     if not sheet:
         return
     try:
-        str_key = str(key_id)
-        cell = sheet.find(str_key)
+        str_key = clean_key_str(key_id)
+        if not str_key:
+            return
         now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        row_data = [str_key, str(review_notes), bool(vc), bool(cc), bool(is_reviewed), bool(is_cust_order), str(reviewed_date or ""), now_str]
+        clean_note = clean_key_str(review_notes)
+        row_data = [str_key, clean_note, bool(vc), bool(cc), bool(is_reviewed), bool(is_cust_order), str(reviewed_date or ""), now_str]
         
-        if cell:
-            sheet.update(f"A{cell.row}:H{cell.row}", [row_data])
+        col_keys = [clean_key_str(k) for k in sheet.col_values(1)]
+        if str_key in col_keys:
+            row_idx = col_keys.index(str_key) + 1
+            sheet.update(f"A{row_idx}:H{row_idx}", [row_data])
         else:
             sheet.append_row(row_data)
-    except Exception:
-        pass
+    except Exception as e:
+        st.error(f"Error saving to Google Sheets: {e}")
 
 def clear_all_saved_data():
     st.session_state["acknowledged_pos"] = set()
@@ -117,8 +138,9 @@ def clear_all_saved_data():
     if sheet:
         try:
             sheet.resize(rows=1)
-        except Exception:
-            pass
+            sheet.update("A1:H1", [SHEET_HEADERS])
+        except Exception as e:
+            st.error(f"Error clearing sheet data: {e}")
 
 # ---------------------------------------------------------
 # CUSTOM INJECTED CSS
@@ -404,7 +426,6 @@ if df is not None:
                 del st.session_state["cust_acknowledged_dates"][key]
             st.session_state["cust_restored_orders"].add(key)
 
-    # Filter for 'On Order' status
     on_order_df = df[df['Status'] == 'On Order'].copy()
 
     if on_order_df.empty:
@@ -428,7 +449,8 @@ if df is not None:
                 existing_clean_cols = [c for c in clean_cols if c in checked_in_mismatch.columns]
                 st.dataframe(checked_in_mismatch[existing_clean_cols], use_container_width=True, hide_index=True)
 
-        on_order_df['Vendor PO Clean'] = on_order_df['Vendor PO'].fillna('Unassigned PO')
+        on_order_df['Vendor PO Clean'] = on_order_df['Vendor PO'].apply(clean_key_str).replace("", "Unassigned PO")
+        on_order_df['Magento Order Clean'] = on_order_df['Magento Order'].apply(clean_key_str)
         on_order_df['Vendor Order Date Clean'] = pd.to_datetime(on_order_df['Vendor Order Date'], errors='coerce')
         on_order_df['Date Ordered Clean'] = pd.to_datetime(on_order_df['Date Ordered'], errors='coerce')
         on_order_df['Effective Date'] = on_order_df['Vendor Order Date Clean'].fillna(on_order_df['Date Ordered Clean'])
@@ -436,8 +458,8 @@ if df is not None:
         def combine_notes(series):
             unique_notes = []
             for item in series.dropna().unique():
-                clean_item = str(item).strip()
-                if clean_item and clean_item.lower() != 'nan' and clean_item not in unique_notes:
+                clean_item = clean_key_str(item)
+                if clean_item and clean_item not in unique_notes:
                     unique_notes.append(clean_item)
             return " | ".join(unique_notes) if unique_notes else "-"
 
@@ -461,26 +483,26 @@ if df is not None:
 
         po_summary['Is_Past_Due'] = po_summary.apply(check_past_due, axis=1)
         all_past_due_df = po_summary[po_summary['Is_Past_Due']].sort_values(by='Days_Open_Vendor', ascending=False)
-        all_past_due_po_set = set(all_past_due_df['Vendor PO'])
+        all_past_due_po_set = set(all_past_due_df['Vendor PO'].apply(clean_key_str))
 
         all_past_due_df['Vendor Order Date'] = all_past_due_df['Min_Vendor_Order_Date'].dt.strftime('%m/%d/%Y')
         all_past_due_df['Customer Order Date'] = all_past_due_df['Min_Customer_Order_Date'].dt.strftime('%m/%d/%Y')
 
         all_past_due_df['Flag'] = all_past_due_df['Vendor PO'].apply(
-            lambda po: "🚩" if po in st.session_state["restored_pos"] else ""
+            lambda po: "🚩" if clean_key_str(po) in st.session_state["restored_pos"] else ""
         )
         all_past_due_df['VC'] = all_past_due_df['Vendor PO'].apply(
-            lambda po: st.session_state["vc_state"].get(po, False)
+            lambda po: st.session_state["vc_state"].get(clean_key_str(po), False)
         )
         all_past_due_df['CC'] = all_past_due_df['Vendor PO'].apply(
-            lambda po: st.session_state["cc_state"].get(po, False)
+            lambda po: st.session_state["cc_state"].get(clean_key_str(po), False)
         )
         all_past_due_df['Review Notes'] = all_past_due_df['Vendor PO'].apply(
-            lambda po: st.session_state["reviewer_notes"].get(po, "")
+            lambda po: st.session_state["reviewer_notes"].get(clean_key_str(po), "")
         )
 
-        active_past_due = all_past_due_df[~all_past_due_df['Vendor PO'].isin(st.session_state["acknowledged_pos"])].copy()
-        reviewed_past_due = all_past_due_df[all_past_due_df['Vendor PO'].isin(st.session_state["acknowledged_pos"])].copy()
+        active_past_due = all_past_due_df[~all_past_due_df['Vendor PO'].apply(clean_key_str).isin(st.session_state["acknowledged_pos"])].copy()
+        reviewed_past_due = all_past_due_df[all_past_due_df['Vendor PO'].apply(clean_key_str).isin(st.session_state["acknowledged_pos"])].copy()
 
         # ---------------------------------------------------------
         # SECTION 2: AGED CUSTOMER ORDERS (>21 DAYS)
@@ -490,36 +512,36 @@ if df is not None:
 
         aged_cust_df = on_order_df[(on_order_df['DSCO'] > 21) & (~on_order_df['Vendor PO Clean'].isin(all_past_due_po_set))].copy()
 
-        cust_orders_summary = aged_cust_df.groupby(['Magento Order', 'Vendor', 'Vendor PO Clean'], dropna=False).agg(
+        cust_orders_summary = aged_cust_df.groupby(['Magento Order Clean', 'Vendor', 'Vendor PO Clean'], dropna=False).agg(
             Min_Customer_Order_Date=('Date Ordered Clean', 'min'),
             Min_Vendor_Order_Date=('Effective Date', 'min'),
             DSCO=('DSCO', 'max'),
             DSVO=('DSVO', 'min'),
             Total_Qty=('Qty', 'sum'),
             Combined_Notes=('Notes', combine_notes)
-        ).reset_index().rename(columns={'Vendor PO Clean': 'Vendor PO'})
+        ).reset_index().rename(columns={'Vendor PO Clean': 'Vendor PO', 'Magento Order Clean': 'Magento Order'})
 
         cust_orders_summary = cust_orders_summary.sort_values(by='DSCO', ascending=False)
         cust_orders_summary['Customer Order Date'] = cust_orders_summary['Min_Customer_Order_Date'].dt.strftime('%m/%d/%Y')
         cust_orders_summary['Vendor Order Date'] = cust_orders_summary['Min_Vendor_Order_Date'].dt.strftime('%m/%d/%Y')
 
-        cust_orders_summary['Order_Key'] = cust_orders_summary['Magento Order'].astype(str) + "_" + cust_orders_summary['Vendor PO'].astype(str)
+        cust_orders_summary['Order_Key'] = cust_orders_summary['Magento Order'].apply(clean_key_str) + "_" + cust_orders_summary['Vendor PO'].apply(clean_key_str)
 
         cust_orders_summary['Flag'] = cust_orders_summary['Order_Key'].apply(
-            lambda key: "🚩" if key in st.session_state["cust_restored_orders"] else ""
+            lambda key: "🚩" if clean_key_str(key) in st.session_state["cust_restored_orders"] else ""
         )
         cust_orders_summary['VC'] = cust_orders_summary['Order_Key'].apply(
-            lambda key: st.session_state["vc_state"].get(key, False)
+            lambda key: st.session_state["vc_state"].get(clean_key_str(key), False)
         )
         cust_orders_summary['CC'] = cust_orders_summary['Order_Key'].apply(
-            lambda key: st.session_state["cc_state"].get(key, False)
+            lambda key: st.session_state["cc_state"].get(clean_key_str(key), False)
         )
         cust_orders_summary['Review Notes'] = cust_orders_summary['Order_Key'].apply(
-            lambda key: st.session_state["reviewer_notes"].get(key, "")
+            lambda key: st.session_state["reviewer_notes"].get(clean_key_str(key), "")
         )
 
-        active_aged_cust = cust_orders_summary[~cust_orders_summary['Order_Key'].isin(st.session_state["cust_acknowledged_orders"])].copy()
-        reviewed_aged_cust = cust_orders_summary[cust_orders_summary['Order_Key'].isin(st.session_state["cust_acknowledged_orders"])].copy()
+        active_aged_cust = cust_orders_summary[~cust_orders_summary['Order_Key'].apply(clean_key_str).isin(st.session_state["cust_acknowledged_orders"])].copy()
+        reviewed_aged_cust = cust_orders_summary[cust_orders_summary['Order_Key'].apply(clean_key_str).isin(st.session_state["cust_acknowledged_orders"])].copy()
 
         # ---------------------------------------------------------
         # HIGH-LEVEL METRICS
@@ -597,14 +619,14 @@ if df is not None:
 
             state_changed = False
             for _, row in edited_active_view.iterrows():
-                po = row['Vendor PO']
-                note = row['Review Notes']
-                vc = row['VC']
-                cc = row['CC']
+                po = clean_key_str(row['Vendor PO'])
+                note = clean_key_str(row['Review Notes'])
+                vc = bool(row['VC'])
+                cc = bool(row['CC'])
                 
-                if (st.session_state["reviewer_notes"].get(po) != note or 
-                    st.session_state["vc_state"].get(po) != vc or 
-                    st.session_state["cc_state"].get(po) != cc or 
+                if (st.session_state["reviewer_notes"].get(po, "") != note or 
+                    st.session_state["vc_state"].get(po, False) != vc or 
+                    st.session_state["cc_state"].get(po, False) != cc or 
                     row['Move']):
                     
                     st.session_state["reviewer_notes"][po] = note
@@ -617,7 +639,7 @@ if df is not None:
                         rev_date = datetime.today().strftime('%Y-%m-%d')
                         st.session_state["acknowledged_dates"][po] = rev_date
                     else:
-                        rev_date = st.session_state["acknowledged_dates"].get(po)
+                        rev_date = st.session_state["acknowledged_dates"].get(po, "")
                         
                     save_key_state_to_cloud(po, review_notes=note, vc=vc, cc=cc, is_reviewed=is_reviewed, is_cust_order=False, reviewed_date=rev_date)
                     state_changed = True
@@ -650,14 +672,14 @@ if df is not None:
 
             state_changed_rev = False
             for _, row in edited_reviewed_view.iterrows():
-                po = row['Vendor PO']
-                note = row['Review Notes']
-                vc = row['VC']
-                cc = row['CC']
+                po = clean_key_str(row['Vendor PO'])
+                note = clean_key_str(row['Review Notes'])
+                vc = bool(row['VC'])
+                cc = bool(row['CC'])
                 
-                if (st.session_state["reviewer_notes"].get(po) != note or 
-                    st.session_state["vc_state"].get(po) != vc or 
-                    st.session_state["cc_state"].get(po) != cc or 
+                if (st.session_state["reviewer_notes"].get(po, "") != note or 
+                    st.session_state["vc_state"].get(po, False) != vc or 
+                    st.session_state["cc_state"].get(po, False) != cc or 
                     row['Move']):
                     
                     st.session_state["reviewer_notes"][po] = note
@@ -666,7 +688,8 @@ if df is not None:
                     
                     is_reviewed = not row['Move']
                     if row['Move']:
-                        st.session_state["acknowledged_pos"].remove(po)
+                        if po in st.session_state["acknowledged_pos"]:
+                            st.session_state["acknowledged_pos"].remove(po)
                         st.session_state["restored_pos"].add(po)
                         
                     save_key_state_to_cloud(po, review_notes=note, vc=vc, cc=cc, is_reviewed=is_reviewed, is_cust_order=False)
@@ -706,14 +729,14 @@ if df is not None:
 
             state_changed_cust = False
             for idx, row in edited_cust_view.iterrows():
-                key = str(row['Magento Order']) + "_" + str(row['Vendor PO'])
-                note = row['Review Notes']
-                vc = row['VC']
-                cc = row['CC']
+                key = clean_key_str(row['Magento Order']) + "_" + clean_key_str(row['Vendor PO'])
+                note = clean_key_str(row['Review Notes'])
+                vc = bool(row['VC'])
+                cc = bool(row['CC'])
                 
-                if (st.session_state["reviewer_notes"].get(key) != note or 
-                    st.session_state["vc_state"].get(key) != vc or 
-                    st.session_state["cc_state"].get(key) != cc or 
+                if (st.session_state["reviewer_notes"].get(key, "") != note or 
+                    st.session_state["vc_state"].get(key, False) != vc or 
+                    st.session_state["cc_state"].get(key, False) != cc or 
                     row['Move']):
                     
                     st.session_state["reviewer_notes"][key] = note
@@ -726,7 +749,7 @@ if df is not None:
                         rev_date = datetime.today().strftime('%Y-%m-%d')
                         st.session_state["cust_acknowledged_dates"][key] = rev_date
                     else:
-                        rev_date = st.session_state["cust_acknowledged_dates"].get(key)
+                        rev_date = st.session_state["cust_acknowledged_dates"].get(key, "")
                         
                     save_key_state_to_cloud(key, review_notes=note, vc=vc, cc=cc, is_reviewed=is_reviewed, is_cust_order=True, reviewed_date=rev_date)
                     state_changed_cust = True
@@ -760,14 +783,14 @@ if df is not None:
 
             state_changed_cust_rev = False
             for idx, row in edited_cust_rev_view.iterrows():
-                key = str(row['Magento Order']) + "_" + str(row['Vendor PO'])
-                note = row['Review Notes']
-                vc = row['VC']
-                cc = row['CC']
+                key = clean_key_str(row['Magento Order']) + "_" + clean_key_str(row['Vendor PO'])
+                note = clean_key_str(row['Review Notes'])
+                vc = bool(row['VC'])
+                cc = bool(row['CC'])
                 
-                if (st.session_state["reviewer_notes"].get(key) != note or 
-                    st.session_state["vc_state"].get(key) != vc or 
-                    st.session_state["cc_state"].get(key) != cc or 
+                if (st.session_state["reviewer_notes"].get(key, "") != note or 
+                    st.session_state["vc_state"].get(key, False) != vc or 
+                    st.session_state["cc_state"].get(key, False) != cc or 
                     row['Move']):
                     
                     st.session_state["reviewer_notes"][key] = note
@@ -776,7 +799,8 @@ if df is not None:
                     
                     is_reviewed = not row['Move']
                     if row['Move']:
-                        st.session_state["cust_acknowledged_orders"].remove(key)
+                        if key in st.session_state["cust_acknowledged_orders"]:
+                            st.session_state["cust_acknowledged_orders"].remove(key)
                         st.session_state["cust_restored_orders"].add(key)
                         
                     save_key_state_to_cloud(key, review_notes=note, vc=vc, cc=cc, is_reviewed=is_reviewed, is_cust_order=True)
