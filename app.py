@@ -26,7 +26,7 @@ def clean_key_str(val):
 # BACKGROUND GOOGLE SHEETS STORAGE CONNECTION
 # ---------------------------------------------------------
 @st.cache_resource
-def get_gspread_sheet():
+def get_gspread_client():
     if "gcp_service_account" in st.secrets and "gsheets" in st.secrets:
         try:
             scopes = [
@@ -37,19 +37,68 @@ def get_gspread_sheet():
                 st.secrets["gcp_service_account"], scopes=scopes
             )
             client = gspread.authorize(creds)
-            sheet = client.open_by_url(st.secrets["gsheets"]["spreadsheet_url"]).sheet1
-            
-            first_row = sheet.row_values(1)
-            if not first_row or clean_key_str(first_row[0]).lower() != "key_id":
-                sheet.insert_row(SHEET_HEADERS, 1)
-                
-            return sheet
+            spreadsheet = client.open_by_url(st.secrets["gsheets"]["spreadsheet_url"])
+            return spreadsheet
         except Exception as e:
             st.error(f"Google Sheets Connection Error: {e}")
             return None
     else:
         st.error("Streamlit Secrets missing [gcp_service_account] or [gsheets].")
         return None
+
+def get_audit_sheet():
+    spr = get_gspread_client()
+    if not spr:
+        return None
+    try:
+        sheet = spr.sheet1
+        first_row = sheet.row_values(1)
+        if not first_row or clean_key_str(first_row[0]).lower() != "key_id":
+            sheet.insert_row(SHEET_HEADERS, 1)
+        return sheet
+    except Exception as e:
+        st.error(f"Error accessing audit sheet: {e}")
+        return None
+
+def get_orders_cache_sheet():
+    spr = get_gspread_client()
+    if not spr:
+        return None
+    try:
+        try:
+            sheet = spr.worksheet("cached_orders")
+        except gspread.exceptions.WorksheetNotFound:
+            sheet = spr.add_worksheet(title="cached_orders", rows=1500, cols=25)
+        return sheet
+    except Exception as e:
+        st.error(f"Error accessing cache sheet: {e}")
+        return None
+
+def save_orders_to_cache(df_to_save):
+    sheet = get_orders_cache_sheet()
+    if not sheet:
+        return
+    try:
+        clean_df = df_to_save.fillna("")
+        data_to_write = [clean_df.columns.tolist()] + clean_df.astype(str).values.tolist()
+        sheet.clear()
+        sheet.update("A1", data_to_write)
+    except Exception as e:
+        st.error(f"Error caching orders to Google Sheet: {e}")
+
+def load_orders_from_cache():
+    sheet = get_orders_cache_sheet()
+    if not sheet:
+        return None
+    try:
+        all_vals = sheet.get_all_values()
+        if all_vals and len(all_vals) > 1:
+            headers = all_vals[0]
+            data = all_vals[1:]
+            return pd.DataFrame(data, columns=headers)
+    except Exception:
+        pass
+    return None
 
 def load_persisted_state():
     if "acknowledged_pos" not in st.session_state:
@@ -73,7 +122,7 @@ def load_persisted_state():
     if "vc_state" not in st.session_state:
         st.session_state["vc_state"] = {}
 
-    sheet = get_gspread_sheet()
+    sheet = get_audit_sheet()
     if sheet and "cloud_loaded" not in st.session_state:
         try:
             all_rows = sheet.get_all_values()
@@ -116,7 +165,7 @@ def load_persisted_state():
             st.error(f"Error loading saved state: {e}")
 
 def save_key_state_to_cloud(key_id, review_notes="", vc=False, cc=False, is_reviewed=False, is_cust_order=False, reviewed_date=""):
-    sheet = get_gspread_sheet()
+    sheet = get_audit_sheet()
     if not sheet:
         return
     try:
@@ -155,14 +204,22 @@ def clear_all_saved_data():
     st.session_state["reviewer_notes"] = {}
     st.session_state["cc_state"] = {}
     st.session_state["vc_state"] = {}
+    st.session_state["latest_df"] = None
     
-    sheet = get_gspread_sheet()
+    sheet = get_audit_sheet()
     if sheet:
         try:
             sheet.resize(rows=1)
             sheet.update("A1:H1", [SHEET_HEADERS])
         except Exception as e:
-            st.error(f"Error clearing sheet data: {e}")
+            st.error(f"Error clearing audit data: {e}")
+
+    cache_sheet = get_orders_cache_sheet()
+    if cache_sheet:
+        try:
+            cache_sheet.clear()
+        except Exception:
+            pass
 
 # ---------------------------------------------------------
 # CUSTOM INJECTED CSS
@@ -401,7 +458,7 @@ with col_clear_btn:
             st.session_state["confirm_clear"] = False
             st.rerun()
 
-uploaded_file = st.file_uploader("Only upload On Order export from [here](https://admin.forcefitters.com/orders?statuses[]=9)", type=["csv"])
+uploaded_file = st.file_uploader("Upload new On Order export from [here](https://admin.forcefitters.com/orders?statuses[]=9) (optional if already loaded):", type=["csv"])
 
 df = None
 if uploaded_file is not None:
@@ -413,8 +470,17 @@ if uploaded_file is not None:
         
     st.session_state["latest_df"] = df
     save_orders_to_cache(df)
+elif "latest_df" in st.session_state and st.session_state["latest_df"] is not None:
+    df = st.session_state["latest_df"]
+else:
+    df = load_orders_from_cache()
+    if df is not None:
+        st.session_state["latest_df"] = df
 
 if df is not None:
+    if uploaded_file is None:
+        st.caption("ℹ️ Showing loaded orders from Google Sheets cache. Upload a new CSV above to update.")
+
     current_date = pd.to_datetime(datetime.today().strftime('%Y-%m-%d'))
     current_today = datetime.today().date()
 
@@ -484,6 +550,7 @@ if df is not None:
         on_order_df['Vendor Order Date Clean'] = pd.to_datetime(on_order_df['Vendor Order Date'], errors='coerce')
         on_order_df['Date Ordered Clean'] = pd.to_datetime(on_order_df['Date Ordered'], errors='coerce')
         on_order_df['Effective Date'] = on_order_df['Vendor Order Date Clean'].fillna(on_order_df['Date Ordered Clean'])
+        on_order_df['Qty'] = pd.to_numeric(on_order_df['Qty'], errors='coerce').fillna(0).astype(int)
 
         def combine_notes(series):
             unique_notes = []
