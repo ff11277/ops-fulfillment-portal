@@ -405,10 +405,14 @@ uploaded_file = st.file_uploader("Only upload On Order export from [here](https:
 
 df = None
 if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
+    try:
+        df = pd.read_csv(uploaded_file, encoding="utf-8")
+    except UnicodeDecodeError:
+        uploaded_file.seek(0)
+        df = pd.read_csv(uploaded_file, encoding="latin1")
+        
     st.session_state["latest_df"] = df
-elif "latest_df" in st.session_state:
-    df = st.session_state["latest_df"]
+    save_orders_to_cache(df)
 
 if df is not None:
     current_date = pd.to_datetime(datetime.today().strftime('%Y-%m-%d'))
